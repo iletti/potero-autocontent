@@ -22,13 +22,20 @@ class Artist:
         self.fallbacks = fallbacks or ["imagen-3.0-generate-001", "gemini-1.5-flash"]
         self.output_dir = Path(output_dir)
         self.logger = logging.getLogger(__name__)
-        self.upload_cache = upload_cache or UploadCache()
         self.client = client
+        if upload_cache is not None:
+            self.upload_cache = upload_cache
+        elif client is not None:
+            self.upload_cache = UploadCache(client=client)
+        else:
+            self.upload_cache = None
 
     def generate_image(self, brief: SlideBrief, anchor_image_path: Optional[str] = None) -> str:
         """
         Generates a 4:5 image based on the brief with model fallback.
         """
+        if not self.client:
+            raise ValueError("GenAI client not configured for artist.")
         models_to_try = [self.primary_model] + self.fallbacks
         prompt = self._build_prompt(brief)
         image_parts = self._load_reference_images(
@@ -37,13 +44,11 @@ class Artist:
 
         for model in models_to_try:
             try:
-                if not self.client:
-                    raise ValueError("GenAI client not configured for artist.")
                 self.logger.info(
                     "artist_generation_attempt",
                     extra={"model": model, "slide_index": brief.index},
                 )
-                if model.startswith("imagen-"):
+                if self._is_imagen_model(model):
                     images_config = self._build_images_config()
                     if images_config:
                         response = self.client.models.generate_images(
@@ -131,6 +136,9 @@ class Artist:
         reference_assets: List[str],
         anchor_image_path: Optional[str],
     ) -> List[Any]:
+        if self.upload_cache is None:
+            self.logger.warning("upload_cache_unavailable")
+            return []
         assets: List[str] = []
         if anchor_image_path:
             assets.append(anchor_image_path)
@@ -205,3 +213,11 @@ class Artist:
         if isinstance(data, str):
             return base64.b64decode(data)
         return None
+
+    def _is_imagen_model(self, model: str) -> bool:
+        if not model:
+            return False
+        normalized = model
+        if normalized.startswith("models/"):
+            normalized = normalized[len("models/"):]
+        return normalized.startswith("imagen-")
