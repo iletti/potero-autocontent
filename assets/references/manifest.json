@@ -1,0 +1,13 @@
+{
+  "global_references": [],
+  "m05_swatches": [
+    "m05/m05_swatch.jpg"
+  ],
+  "designs": {
+    "rk_hoodie": [
+      "hoodies/hoodie_rk_black_front.webp",
+      "hoodies/hoodie_rk_black_back.webp",
+      "hoodies/hoodie_rk_black_side.webp"
+    ]
+  }
+}
