@@ -10,7 +10,9 @@ except ImportError:  # pragma: no cover - optional dependency
     types = None
 
 from src.state import SlideBrief
+from src.state import SlideBrief
 from src.upload_cache import UploadCache
+from src.interaction_logger import InteractionLogger
 
 
 class ArtistEdit:
@@ -20,11 +22,13 @@ class ArtistEdit:
         output_dir: Optional[Path] = None,
         upload_cache: Optional[UploadCache] = None,
         client: Optional[Any] = None,
+        interaction_logger: Optional[InteractionLogger] = None,
     ):
         self.model_name = model_name
         self.output_dir = Path(output_dir) if output_dir else Path("output")
         self.client = client
         self.logger = logging.getLogger(__name__)
+        self.interaction_logger = interaction_logger
         if upload_cache is not None:
             self.upload_cache = upload_cache
         elif client is not None:
@@ -52,25 +56,87 @@ class ArtistEdit:
             aspect_ratio=brief.image_aspect,
             image_size=brief.image_size,
         )
-        response = self.client.models.generate_content(
-            model=self.model_name,
-            contents=[prompt, *image_parts],
-            config=generation_config,
-        )
+
+        try:
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=[prompt, *image_parts],
+                config=generation_config,
+            )
+        except Exception as e:
+            if self.interaction_logger:
+                self.interaction_logger.log(
+                    agent="ArtistEdit",
+                    step="edit_image_failed",
+                    model=self.model_name,
+                    prompt=prompt,
+                    response=f"Exception: {str(e)}",
+                    metadata={"instructions": instructions}
+                )
+            raise e
+
         image_bytes, file_ext = self._extract_image_bytes(response)
         if not image_bytes:
-            raise ValueError("No image returned from edit call.")
+            # Try to extract text to see if it was a refusal
+            text_response = "No text returned"
+            try:
+                text_response = getattr(response, "text", "") or str(response)
+            except Exception:
+                pass
+            
+            self.logger.warning(
+                "artist_edit_no_image",
+                extra={
+                    "model": self.model_name,
+                    "response_preview": text_response[:500]
+                }
+            )
+
+            if self.interaction_logger:
+                self.interaction_logger.log(
+                    agent="ArtistEdit",
+                    step="edit_image_failed",
+                    model=self.model_name,
+                    prompt=prompt,
+                    response=f"Failed (No Image): {text_response[:1000]}",
+                    metadata={"instructions": instructions}
+                )
+
+            raise ValueError(f"No image returned from edit call. Response: {text_response[:200]}")
 
         filename = f"slide_{brief.index}_edit.{file_ext}"
         output_path = self.output_dir / filename
         output_path.write_bytes(image_bytes)
+
+        if self.interaction_logger:
+            self.interaction_logger.log(
+                agent="ArtistEdit",
+                step="edit_image",
+                model=self.model_name,
+                prompt=prompt,
+                response=f"Success: {filename} ({len(image_bytes)} bytes)",
+                metadata={"instructions": instructions}
+            )
+
         return str(output_path)
 
     def _build_prompt(self, brief: SlideBrief, instructions: str) -> str:
         composition = brief.composition_guidance or ""
+        
+        preservation_instruction = ""
+        if "logo" in instructions.lower() or "embroidery" in instructions.lower():
+            preservation_instruction = (
+                "CRITICAL: You are fixing the BRANDING/LOGO. "
+                "Use the provided FRONT VIEW reference image as the absolute ground truth for the logo "
+                "size, position, and color. "
+                "Preserve the original image's pose, lighting, background, and fold patterns exactly. "
+                "Only overlay/correct the logo pixels."
+            )
+            
         return (
             "Edit the image based on the instructions. Keep the original composition.\n"
             f"Instructions: {instructions}\n"
+            f"{preservation_instruction}\n"
             f"Positive prompt: {brief.positive_prompt}\n"
             f"Negative prompt: {brief.negative_prompt}\n"
             f"Composition guidance: {composition}\n"
@@ -89,7 +155,7 @@ class ArtistEdit:
                 response_modalities=["IMAGE"],
                 image_config=types.ImageConfig(
                     aspect_ratio=aspect_ratio or "4:5",
-                    size=image_size or "2K",
+                    image_size=image_size or "2K",
                 ),
             )
         return types.GenerateContentConfig(

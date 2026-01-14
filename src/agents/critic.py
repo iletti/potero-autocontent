@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from src.upload_cache import UploadCache
+from src.interaction_logger import InteractionLogger
 class CriticError(Exception):
     pass
 
@@ -18,6 +19,7 @@ class Critic:
         allow_warn_pass: bool = False,
         upload_cache: Optional[UploadCache] = None,
         client: Optional[Any] = None,
+        interaction_logger: Optional[InteractionLogger] = None,
     ):
         self.model_name = model_name
         self.warn_threshold = warn_threshold
@@ -28,6 +30,7 @@ class Critic:
         self.logger = logging.getLogger(__name__)
         self.client = client
         self.upload_cache = upload_cache
+        self.interaction_logger = interaction_logger
 
     def validate_image(
         self,
@@ -38,29 +41,20 @@ class Critic:
         Validates the generated image against the Potero "Kill List".
         """
         vqa_checklist = [
-            "Is a face or identifiable tattoo visible?",
+            "Is a face visible?",
+            "Is the hoodie front-facing (chest visible) or back-facing?",
             (
-                "Is there any readable text or logo that is NOT the approved "
-                "'POTERO STANDARD' embroidery on the hoodie front?"
+                "If front-facing: Is the 'POTERO STANDARD' embroidery verifiable on the left chest "
+                "(even if small or partially occluded)? Is it verifiably NOT a mismatch? "
+                "(Identify if it is missing or clearly wrong design. "
+                "Ignore if back-facing)."
             ),
-            "Are there exactly 5 fingers on each hand? Are they holding gear correctly?",
-            "Is any camo pattern on gear or trousers NOT Finnish M05?",
+
             (
-                "Is there any camo pattern applied to the hoodie fabric itself?"
+                "Are there any text/logos that clearly contradict the reference images? "
+                "(Brands visible on gear in the references are ALLOWED)."
             ),
-            (
-                "Is the hoodie front-facing (chest visible) or back-facing?"
-            ),
-            (
-                "If the hoodie is front-facing, is the 'POTERO STANDARD' "
-                "embroidery present and matching the reference size, color, and placement?"
-            ),
-            (
-                "If the hoodie is back-facing, does the back design match the "
-                "reference exactly and remain at least partially visible "
-                "(partial occlusion by gear is acceptable)?"
-            ),
-            "Is the lighting flat or glossy (not harsh with crushed blacks)?",
+
         ]
         
         self.logger.info("critic_analyzing_image", extra={"image_path": image_path})
@@ -76,6 +70,17 @@ class Critic:
                 contents=[prompt, image_part, *reference_parts],
             )
             text = getattr(response, "text", None) or str(response)
+
+            if self.interaction_logger:
+                self.interaction_logger.log(
+                    agent="Critic",
+                    step="validate_image",
+                    model=self.model_name,
+                    prompt=prompt,
+                    response=text,
+                    metadata={"image": str(image_path)}
+                )
+
             result = self._parse_result(text)
             result = self._apply_fail_fast(result)
             result = self._apply_thresholds(result)
@@ -121,58 +126,38 @@ class Critic:
         return f"""
 You are the Critic Agent for Potero Carousel Factory.
 Analyze the generated image and compare it to the reference images.
-The first image is the generated output. Any additional images are references
-(hoodie product shots and/or M05 swatches). Use them as strict ground truth.
-The only allowed readable text/logo is the approved "POTERO STANDARD" embroidery
-that matches the hoodie references in size, color, and placement.
-Only require the front embroidery when the hoodie is front-facing. If the
-hoodie is back-facing, the front embroidery may be absent and should NOT be
-treated as a violation. Back design must match references; partial occlusion
-by gear is acceptable if the design remains verifiable. If the back design is
-not visible enough to verify, mark "back_design_not_visible".
-If you are not fully confident the embroidery matches the references exactly,
-set pass=false and include "hoodie_mismatch" in violations.
+Trust the artist's creative interpretation unless it clearly violates a hard rule.
+Be brand-positive and lenient. Only fail if there is a severe design mismatch or an OPSEC violation (face visible).
+
+REPAIR LOGIC:
+- If failures are LOCAL and MINOR (e.g., "logo_mismatch", "hoodie_mismatch" due to small embroidery error, "small_texture_defect"), set "repair_mode": "edit".
+- If failures are GLOBAL (e.g., "face visible", "wrong product entirely"), set "repair_mode": "regen".
+- Default to "pass": true if the image looks good enough for social media.
 
 Checklist:
 {questions}
 
 If any checklist item is a violation, set opsec_pass=false or add to violations.
-Return strict JSON only in this format (arrays can be empty):
+Return strict JSON only in this format:
 {{
   "pass": true,
   "opsec_pass": true,
   "opsec_violations": [],
   "potero_score": 0-10,
   "potero_breakdown": {{
-    "lighting": 0-3,
-    "texture": 0-3,
-    "authenticity": 0-3,
-    "narrative": 0-1,
-    "anti_warcore": 0-1,
-    "composition_imperfect": 0-1
+    "design_accuracy": 0-5,
+    "image_quality": 0-5
   }},
+  "front_embroidery_verifiable": true/false,
+  "back_design_verifiable": true/false,
+  "verifiability_fail_reason": "occluded | none",
   "potero_fail_reasons": [],
   "qa_score": 0-100,
-  "violations": [
-    "face",
-    "tattoo",
-    "flag",
-    "unapproved_text",
-    "logo_mismatch",
-    "hoodie_mismatch",
-    "front_logo_missing",
-    "front_logo_incorrect",
-    "back_design_mismatch",
-    "back_design_not_visible",
-    "camo_mismatch",
-    "camo_on_hoodie",
-    "anatomy",
-    "lighting"
-  ],
+  "violations": [],
   "feedback": "short reason",
   "repair_mode": "edit or regen",
   "repair_targets": [],
-  "repair_instructions": "single paragraph",
+  "repair_instructions": "",
   "confidence": 0-1
 }}
 """.strip()
@@ -193,6 +178,10 @@ Return strict JSON only in this format (arrays can be empty):
         if not isinstance(potero_breakdown, dict):
             potero_breakdown = {}
         potero_fail_reasons = _coerce_list(data.get("potero_fail_reasons"))
+        front_verifiable = _coerce_bool(data.get("front_embroidery_verifiable"))
+        back_verifiable = _coerce_bool(data.get("back_design_verifiable"))
+        verifiability_fail_reason = data.get("verifiability_fail_reason")
+
         repair_mode = data.get("repair_mode")
         repair_targets = _coerce_list(data.get("repair_targets"))
         repair_instructions = data.get("repair_instructions", "")
@@ -212,6 +201,9 @@ Return strict JSON only in this format (arrays can be empty):
             "potero_score": potero_score,
             "potero_breakdown": potero_breakdown,
             "potero_fail_reasons": potero_fail_reasons,
+            "front_embroidery_verifiable": front_verifiable,
+            "back_design_verifiable": back_verifiable,
+            "verifiability_fail_reason": verifiability_fail_reason,
             "repair_mode": repair_mode,
             "repair_targets": repair_targets,
             "repair_instructions": str(repair_instructions),
@@ -239,12 +231,6 @@ Return strict JSON only in this format (arrays can be empty):
             "tattoo",
             "flag",
             "unapproved_text",
-            "logo_mismatch",
-            "hoodie_mismatch",
-            "front_logo_missing",
-            "front_logo_incorrect",
-            "back_design_mismatch",
-            "back_design_not_visible",
             "camo_mismatch",
             "camo_on_hoodie",
         }

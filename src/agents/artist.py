@@ -11,6 +11,7 @@ except ImportError:  # pragma: no cover - optional dependency
 
 from src.state import SlideBrief
 from src.upload_cache import UploadCache
+from src.interaction_logger import InteractionLogger
 
 class Artist:
     def __init__(
@@ -20,8 +21,10 @@ class Artist:
         upload_cache: Optional[UploadCache] = None,
         client: Optional[Any] = None,
         fallbacks: Optional[List[str]] = None,
+        interaction_logger: Optional[InteractionLogger] = None,
     ):
         self.primary_model = model_name
+        self.interaction_logger = interaction_logger
         self.fallbacks = fallbacks or ["imagen-3.0-generate-001", "gemini-1.5-flash"]
         self.output_dir = Path(output_dir)
         self.logger = logging.getLogger(__name__)
@@ -37,6 +40,7 @@ class Artist:
         self,
         brief: SlideBrief,
         anchor_image_path: Optional[str] = None,
+        suffix: Optional[str] = None,
     ) -> str:
         """
         Generates a 4:5 image based on the brief with model fallback.
@@ -45,9 +49,6 @@ class Artist:
             raise ValueError("GenAI client not configured for artist.")
         models_to_try = [self.primary_model] + self.fallbacks
         prompt = self._build_prompt(brief)
-        image_parts = self._load_reference_images(
-            brief.reference_assets, anchor_image_path
-        )
         aspect_ratio = brief.image_aspect
         image_size = brief.image_size
 
@@ -58,6 +59,8 @@ class Artist:
                     extra={"model": model, "slide_index": brief.index},
                 )
                 if self._is_imagen_model(model):
+                    # Imagen doesn't support interleaved, fallback to flat prompt + images
+                    # This path might need future work if Imagen is critical
                     images_config = self._build_images_config()
                     if images_config:
                         response = self.client.models.generate_images(
@@ -72,6 +75,9 @@ class Artist:
                         )
                     image_bytes, file_ext = self._extract_imagen_bytes(response)
                 else:
+                    # Gemini supports interleaved content
+                    contents = self._build_interleaved_content(brief, prompt, anchor_image_path)
+                    
                     generation_config = self._build_generation_config(
                         aspect_ratio=aspect_ratio,
                         image_size=image_size,
@@ -79,31 +85,75 @@ class Artist:
                     if generation_config:
                         response = self.client.models.generate_content(
                             model=model,
-                            contents=[prompt, *image_parts],
+                            contents=contents,
                             config=generation_config,
                         )
                     else:
                         response = self.client.models.generate_content(
                             model=model,
-                            contents=[prompt, *image_parts],
+                            contents=contents,
                         )
                     image_bytes, file_ext = self._extract_image_bytes(response)
                 if not image_bytes:
+                    # Try to extract text to see if it was a refusal
+                    text_response = "No text returned"
+                    try:
+                        text_response = getattr(response, "text", "") or str(response)
+                    except Exception:
+                        pass
+                    
                     self.logger.warning(
                         "artist_no_image_returned",
-                        extra={"model": model, "slide_index": brief.index},
+                        extra={
+                            "model": model, 
+                            "slide_index": brief.index,
+                            "response_preview": text_response[:500]
+                        },
                     )
+
+                    if self.interaction_logger:
+                        prompt_to_log = contents if not self._is_imagen_model(model) else prompt
+                        self.interaction_logger.log(
+                            agent="Artist",
+                            step="generate_image_failed",
+                            model=model,
+                            prompt=prompt_to_log,
+                            response=f"Failed (No Image): {text_response[:1000]}",
+                            metadata={"slide_index": brief.index}
+                        )
+
                     continue
 
-                filename = f"slide_{brief.index}.{file_ext}"
+                filename = f"slide_{brief.index}{suffix or ''}.{file_ext}"
                 output_path = self.output_dir / filename
                 output_path.write_bytes(image_bytes)
+                if self.interaction_logger:
+                    prompt_to_log = contents if not self._is_imagen_model(model) else prompt
+                    self.interaction_logger.log(
+                        agent="Artist",
+                        step="generate_image",
+                        model=model,
+                        prompt=prompt_to_log,
+                        response=f"Success: {filename} ({len(image_bytes)} bytes)",
+                        metadata={"slide_index": brief.index}
+                    )
+
                 return str(output_path)
             except Exception as e:
                 self.logger.warning(
                     "artist_generation_failed",
                     extra={"model": model, "error": str(e)},
                 )
+                if self.interaction_logger:
+                    prompt_to_log = contents if not self._is_imagen_model(model) else prompt
+                    self.interaction_logger.log(
+                        agent="Artist",
+                        step="generate_image_failed",
+                        model=model,
+                        prompt=prompt_to_log,
+                        response=f"Exception: {str(e)}",
+                        metadata={"slide_index": brief.index}
+                    )
         
         raise Exception("All image generation models failed.")
 
@@ -114,8 +164,9 @@ class Artist:
         count: int,
     ) -> List[str]:
         candidates: List[str] = []
-        for _ in range(max(1, count)):
-            candidates.append(self.generate_image(brief, anchor_image_path))
+        for i in range(max(1, count)):
+            suffix = f"_cand_{i+1}"
+            candidates.append(self.generate_image(brief, anchor_image_path, suffix=suffix))
         return candidates
 
     def _build_generation_config(
@@ -130,8 +181,26 @@ class Artist:
                 response_modalities=["IMAGE"],
                 image_config=types.ImageConfig(
                     aspect_ratio=aspect_ratio or "4:5",
-                    size=image_size or "2K",
+                    image_size=image_size or "2K",
                 ),
+                safety_settings=[
+                    types.SafetySetting(
+                        category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                        threshold=types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                    ),
+                    types.SafetySetting(
+                        category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                        threshold=types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                    ),
+                    types.SafetySetting(
+                        category=types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                        threshold=types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                    ),
+                    types.SafetySetting(
+                        category=types.HarmCategory.HARM_CATEGORY_HARASSMENT,
+                        threshold=types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                    ),
+                ],
             )
         return types.GenerateContentConfig(
             response_modalities=["IMAGE"]
@@ -158,29 +227,61 @@ class Artist:
             "if not required, omit all text/logos."
         ).strip()
 
-    def _load_reference_images(
+    def _build_interleaved_content(
         self,
-        reference_assets: List[str],
+        brief: SlideBrief,
+        prompt: str,
         anchor_image_path: Optional[str],
     ) -> List[Any]:
         if self.upload_cache is None:
             self.logger.warning("upload_cache_unavailable")
-            return []
-        assets: List[str] = []
+            return [prompt]
+        
+        parts: List[Any] = [prompt]
+        
+        # 2. Add Anchor Image (Consistency Context)
         if anchor_image_path:
-            assets.append(anchor_image_path)
-        assets.extend(reference_assets or [])
+            path = Path(anchor_image_path)
+            if path.exists():
+                parts.append("\n\nCONTEXT ANCHOR: The following image is the generated anchor shot for this carousel. Use it for CHARACTER and GEAR CONSISTENCY only. Do NOT copy the pose or composition. Maintain the same subject and equipment.")
+                parts.append(self.upload_cache.upload(path))
+            else:
+                self.logger.warning("anchor_image_missing", extra={"path": str(path)})
 
-        parts: List[Any] = []
-        for asset in assets:
-            path = Path(asset)
-            if not path.exists():
-                self.logger.warning(
-                    "reference_asset_missing",
-                    extra={"asset": str(path)},
-                )
-                continue
-            parts.append(self.upload_cache.upload(path))
+        # 3. Add Reference Assets with Roles (Deduplicated)
+        seen_paths = set()
+        if brief.reference_assets:
+            for asset in brief.reference_assets:
+                path = Path(asset)
+                if not path.exists() or str(path) in seen_paths:
+                    continue
+                seen_paths.add(str(path))
+                
+                # Look up the semantic role
+                role = brief.asset_role_map.get(asset, "GENERAL_REFERENCE")
+                
+                # TEMP DEBUG: Skip weapon references to avoid safety blocks
+                if "WEAPON" in role:
+                    continue
+
+                # Determine instruction based on role type
+                label = f"\n\nREFERENCE ({role}): "
+                if "DESIGN" in role:
+                    label += "GROUND TRUTH for the HOODIE design. Copy this exactly."
+                elif "WEAPON" in role:
+                    label += "GROUND TRUTH for the WEAPON details."
+                elif "TEXTURE" in role:
+                    label += "GROUND TRUTH for the CAMOUFLAGE pattern."
+                elif "ENV" in role:
+                    label += "Use this for ATMOSPHERE and LIGHTING reference."
+                elif "GEAR" in role:
+                    label += "GROUND TRUTH for EQUIPMENT details."
+                else:
+                    label += "Use as general reference."
+                
+                parts.append(label)
+                parts.append(self.upload_cache.upload(path))
+        
         return parts
 
     def _extract_image_bytes(self, response: Any) -> Tuple[Optional[bytes], str]:

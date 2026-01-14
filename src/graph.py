@@ -193,9 +193,20 @@ def create_graph(
                 anchor_path=anchor_path,
                 assets_dir=planner.potero_assets_dir,
             )
+            
+            # Flatten role_map (Role -> [Paths]) to asset_role_map (Path -> Role)
+            # This allows the Artist to label each image contextually
+            asset_map = {}
+            for role, paths in role_map.items():
+                for path in paths:
+                    asset_map[path] = role
+            
             brief = update_model(
                 brief,
-                {"reference_assets": reference_assets},
+                {
+                    "reference_assets": reference_assets,
+                    "asset_role_map": asset_map,
+                },
             )
             state["briefs"][current_idx] = brief
             persist_state(carousel, state["briefs"])
@@ -510,10 +521,14 @@ def create_graph(
                     "error": str(exc),
                 },
             )
+            retry_count = state["retry_count"] + 1
+            carousel.slides[current_idx].retry_count = retry_count
+            persist_state(carousel, state["briefs"])
             return {
                 "carousel_state": carousel,
                 "critic_passed": False,
-                "critic_feedback": str(exc),
+                "critic_feedback": f"Edit failed: {str(exc)}",
+                "retry_count": retry_count,
                 "skip_validation": True,
             }
         carousel.slides[current_idx].image_path = edited_path

@@ -4,7 +4,8 @@ from pathlib import Path
 from typing import Any, List, Optional
 
 from src.asset_registry import AssetRegistry
-from src.prompt_compiler import compile_brief, PromptCompilerError
+from src.asset_registry import AssetRegistry
+from src.model_utils import model_dump, update_model
 from src.model_utils import model_dump, update_model
 from src.budget import can_consume, consume
 from src.state import (
@@ -14,34 +15,27 @@ from src.state import (
     SlideState,
     RunBudget,
 )
+from src.interaction_logger import InteractionLogger
+
 
 GLOBAL_STYLE_BLOCK = (
-    "Photorealistic raw photo, Finnish Reservist aesthetic, M05 camouflage on "
-    "gear only, grainy, high ISO, crushed blacks, desaturated greens/blues, "
-    "M05 camo slightly washed out and less saturated for realism. "
+    "Photorealistic raw photo, Finnish Reservist aesthetic, Ranger Green or Grey gear, "
+    "grainy, high ISO, crushed blacks, desaturated greens/blues. "
     "Shot on 35mm film, harsh on-camera flash. Documentary style, not cinematic."
 )
 DESIGN_INVARIANTS = (
-    "Hoodie must exactly match the provided reference images in color, fabric, "
-    "print, size, and placement. Never apply M05 or any other camo "
-    "to the hoodie fabric; M05 appears only on gear or background elements. "
-    "Match the Finnish M05 swatch reference exactly for any camo on gear or trousers. "
-    "No text or logos anywhere unless explicitly required by the brief."
-    "Prioritize showing the back of the hoodie in most shots; front view should "
-    "be a minority of the carousel (about 20% front, 80% back). For back-view "
-    "shots, the front embroidery does not need to be visible; the back design "
-    "must match references and be at least partially visible. Partial occlusion "
-    "by gear is acceptable if the back design remains verifiable. Ensure at "
-    "least one front-facing shot where the chest embroidery is clearly visible "
-    "and matches the reference."
+    "Hoodie must exactly match the provided reference images. "
+    "Gear must be solid Ranger Green or Grey. NO Camo patterns on gear. "
+    "Trust the reference images for all gear branding and details. "
+    "No unapproved text or logos; if gear has visible brands in references, they are allowed."
 )
+# Deduped negative constraints
 NEGATIVE_CONSTRAINTS = (
     "bad anatomy, extra fingers, watermark, signature, username, "
-    "unapproved text, text, letters, words, typography, slogans, numbers, "
-    "unapproved logos, logos on gear, patches on gear, chest rig logos, "
-    "flag, patch, name tape, face, eyes, "
-    "skin, bright colors, sunny, studio lighting, bokeh, 3d render, cgi. "
-    "No text or logos unless explicitly required by the brief."
+    "unapproved text, typography, slogans, numbers, "
+    "unapproved logos, patches on gear, chest rig logos, "
+    "flag, name tape, face, eyes, skin, bright colors, sunny, "
+    "studio lighting, bokeh, 3d render, cgi."
 )
 
 
@@ -49,15 +43,23 @@ class PlannerError(Exception):
     pass
 
 TEMPLATE_SHOTS = [
-    "hero_shot",
+    "anchor_shot",
     "close_up_texture",
     "tactical_action",
     "gear_detail",
     "final_brand_shot",
 ]
 
+POSE_LIBRARY = {
+    "transition": "standing still, shoulders relaxed, waiting posture, back turned",
+    "mobilization": "packing gear, tying boot laces, checking straps, dynamic movement",
+    "field_wait": "sitting on pack, eating, adjusting glove, cleaning gear, resting",
+    "artifact_detail": "macro tight crop on chest/back area only, no head in frame",
+    "domestic_front": "flat lay on floor or gear pile, water can, coffee mug, static",
+}
+
 INTENT_BY_SHOT = {
-    "hero_shot": "transition",
+    "anchor_shot": "transition",
     "close_up_texture": "artifact_detail",
     "tactical_action": "mobilization",
     "gear_detail": "field_wait",
@@ -65,7 +67,7 @@ INTENT_BY_SHOT = {
 }
 
 RISK_BY_SHOT = {
-    "hero_shot": "medium",
+    "anchor_shot": "medium",
     "close_up_texture": "low",
     "tactical_action": "medium",
     "gear_detail": "medium",
@@ -103,10 +105,10 @@ M05_ROLE_BY_PRESET = {
 THEME_TEMPLATES = {
     "winter_ambush": [
         {
-            "shot_type": "hero_shot",
+            "shot_type": "anchor_shot",
             "positive_prompt": (
                 "Back view of Finnish reservist wearing the reference hoodie "
-                "crouched in a snowy pine stand, rifle low, face fully obscured "
+                "standing still, shoulders relaxed, face fully obscured "
                 "by hood and angle, harsh flash, M05 gear visible, back design "
                 "matches reference and may be partially occluded by gear"
             ),
@@ -118,16 +120,16 @@ THEME_TEMPLATES = {
                 "Front chest detail of the reference hoodie with the small "
                 "'POTERO STANDARD' embroidery visible on the left chest only "
                 "and matching the reference in size, color, and placement; high "
-                "ISO grain, harsh "
-                "flash; M05 gear may appear in background only"
+                "ISO grain, harsh flash; M05 gear may appear in background only. "
+                "Crop: Neck-down only. No face."
             ),
             "composition_guidance": "Keep the top band clean.",
         },
         {
             "shot_type": "tactical_action",
             "positive_prompt": (
-                "Back view of candid movement through foggy forest, boots in snow, "
-                "face not visible, low angle, back of hoodie visible, back design "
+                "Back view, packing gear, tying boot laces or checking straps, "
+                "candid movement, face not visible, low angle, back of hoodie visible, back design "
                 "matches reference"
             ),
             "composition_guidance": "Leave the right third as negative space.",
@@ -144,7 +146,7 @@ THEME_TEMPLATES = {
         {
             "shot_type": "final_brand_shot",
             "positive_prompt": (
-                "Static hero of the reference hoodie laid on snowy ground, "
+                "Static flat lay of the reference hoodie on snowy ground, "
                 "back side up and fully visible, solid color fabric, "
                 "M05 gear nearby, desaturated greens, back design matches reference"
             ),
@@ -171,10 +173,12 @@ class Planner:
         potero_anchor_candidates: int = 3,
         potero_assets_dir: Optional[Path] = None,
         client: Optional[Any] = None,
+        interaction_logger: Optional[InteractionLogger] = None,
     ):
         self.model_name = model_name
         self.registry = registry
         self.logger = logging.getLogger(__name__)
+        self.interaction_logger = interaction_logger
         self.planner_mode = planner_mode
         self.potero_shader_version = potero_shader_version
         self.potero_image_aspect = potero_image_aspect
@@ -290,8 +294,8 @@ class Planner:
             {
                 "shot_type": TEMPLATE_SHOTS[0],
                 "positive_prompt": (
-                    f"Back view hero shot in {theme}, Finnish reservist wearing "
-                    "the reference hoodie, face fully obscured, harsh flash, "
+                    f"Back view anchor shot in {theme}, Finnish reservist wearing "
+                    "the reference hoodie, standing still, shoulders relaxed, face fully obscured, harsh flash, "
                     "back design matches reference"
                 ),
                 "composition_guidance": "Leave the top-left quadrant empty.",
@@ -301,14 +305,14 @@ class Planner:
                 "positive_prompt": (
                     f"Front chest detail in {theme}, reference hoodie "
                     "embroidery small on the left chest only and matching "
-                    "size/placement; high ISO"
+                    "size/placement; high ISO. Crop: Neck-down only. No face."
                 ),
                 "composition_guidance": "Keep the top band clean.",
             },
             {
                 "shot_type": TEMPLATE_SHOTS[2],
                 "positive_prompt": (
-                    f"Back view tactical movement in {theme}, candid angle, "
+                    f"Back view tactical movement in {theme}, packing gear or checking straps, "
                     "no face visible, back of hoodie visible, back design matches reference"
                 ),
                 "composition_guidance": "Leave the right third as negative space.",
@@ -316,7 +320,7 @@ class Planner:
             {
                 "shot_type": TEMPLATE_SHOTS[3],
                 "positive_prompt": (
-                    f"Back view gear detail in {theme}, hands on equipment, "
+                    f"Back view gear detail in {theme}, sitting on pack or resting, "
                     "harsh flash, back of hoodie visible, back design matches reference"
                 ),
                 "composition_guidance": "Leave the top-left quadrant empty.",
@@ -324,7 +328,7 @@ class Planner:
             {
                 "shot_type": TEMPLATE_SHOTS[4],
                 "positive_prompt": (
-                    f"Final product-focused shot in {theme}, reference hoodie "
+                    f"Final product-focused shot in {theme}, flat lay of reference hoodie "
                     "on ground with back side up, back design matches reference"
                 ),
                 "composition_guidance": "Leave the upper-right quadrant empty.",
@@ -384,7 +388,7 @@ class Planner:
 
     def _infer_kit_anchors(self, prompt: str) -> List[str]:
         lowered = (prompt or "").lower()
-        anchors = ["M05_CAMO"]
+        anchors = [] # Removed M05_CAMO default
         if "rifle" in lowered or "weapon" in lowered:
             anchors.append("RK95_TP")
         if "backpack" in lowered or "pack" in lowered:
@@ -414,12 +418,19 @@ class Planner:
         prompt = brief.positive_prompt or ""
         env_role = ENV_ROLE_BY_PRESET.get(env_preset)
         if env_role:
-            roles.append(env_role)
-        m05_role = M05_ROLE_BY_PRESET.get(env_preset, "TEXTURE_M05_WOODLAND")
-        roles.append(m05_role)
+            # Safety Compliance: Environment references also trigger blocks.
+            # Rely on text description.
+            pass
+            # roles.append(env_role)
+        # M05 removed for Grey Man aesthetic
+        # m05_role = M05_ROLE_BY_PRESET.get(env_preset, "TEXTURE_M05_WOODLAND")
+        # roles.append(m05_role)
 
         if "RK95_TP" in kit_anchors or "rifle" in (prompt or "").lower():
-            roles.extend(["WEAPON_RK95_LEFT", "WEAPON_RK95_MUZZLE_CLOSE"])
+            # Safety Compliance: Weapon reference images trigger model blocks.
+            # Rely on text prompt (RK95_TP anchor) only.
+            pass 
+            # roles.extend(["WEAPON_RK95_LEFT", "WEAPON_RK95_MUZZLE_CLOSE"])
         if "SAVOTTA_JAAKARI_34" in kit_anchors or "PALS_WEBBING" in kit_anchors:
             roles.extend(
                 [
@@ -452,14 +463,15 @@ class Planner:
     def _apply_front_back_rules(self, brief: SlideBrief) -> SlideBrief:
         prompt = brief.positive_prompt or ""
         if self._is_front_shot(brief):
+            # Only mention the specific embroidery for front shots
             prompt = _append_if_missing(
                 prompt,
-                "Small 'POTERO STANDARD' embroidery on the left chest only; never on the back.",
+                "Show the 'POTERO STANDARD' embroidery on the left chest, matching the reference."
             )
         elif self._is_back_shot(brief):
             prompt = _append_if_missing(
                 prompt,
-                "Back view only; no text or embroidery on the back of the hoodie.",
+                "Back view only. Back design matches reference."
             )
         return update_model(brief, {"positive_prompt": prompt})
 
@@ -511,6 +523,17 @@ Input:
             contents=prompt,
         )
         text = getattr(response, "text", None) or str(response)
+
+        if self.interaction_logger:
+            self.interaction_logger.log(
+                agent="Planner",
+                step="refine_briefs",
+                model=self.model_name,
+                prompt=prompt,
+                response=text,
+                metadata={"brief_count": len(briefs)}
+            )
+
         refined = self._parse_briefs_json(text, expected_count=len(briefs))
         return refined
 
@@ -564,34 +587,44 @@ Input:
     ) -> List[SlideBrief]:
         enriched: List[SlideBrief] = []
         for brief in briefs:
-            try:
-                compiled = compile_brief(
-                    brief,
-                    assets_dir=self.potero_assets_dir,
-                    shader_version=self.potero_shader_version,
-                )
-            except PromptCompilerError as exc:
-                self.logger.warning(
-                    "prompt_compiler_failed",
-                    extra={"error": str(exc)},
-                )
-                positive = (
-                    f"{GLOBAL_STYLE_BLOCK} {DESIGN_INVARIANTS} "
-                    f"{brief.positive_prompt}"
-                ).strip()
-                negative = f"{brief.negative_prompt}, {NEGATIVE_CONSTRAINTS}".strip()
-                compiled = update_model(
+            # Explicitly construct the prompt using internal constants
+            # This replaces the hidden text file injection from prompt_compiler
+            positive = (
+                f"{GLOBAL_STYLE_BLOCK} {DESIGN_INVARIANTS} {brief.positive_prompt}"
+            ).strip()
+            
+            # Append metadata to prompt (formerly done by compiler)
+            meta_parts = []
+            if brief.intent:
+                meta_parts.append(f"Intent: {brief.intent}.")
+            if brief.continuum_cue:
+                meta_parts.append(f"Continuum cue: {brief.continuum_cue}.")
+            if brief.env_preset:
+                meta_parts.append(f"Environment preset: {brief.env_preset}.")
+            if brief.lighting_signature:
+                meta_parts.append(f"Lighting signature: {brief.lighting_signature}.")
+            if brief.kit_anchors:
+                anchors = ", ".join(brief.kit_anchors)
+                meta_parts.append(f"Kit anchors: {anchors}.")
+            
+            # Enforce pose library if intent matches
+            pose_instruction = POSE_LIBRARY.get(brief.intent)
+            if pose_instruction:
+                meta_parts.append(f"Pose guidance: {pose_instruction}.")
+            
+            if meta_parts:
+                positive += "\n" + "\n".join(meta_parts)
+
+            negative = f"{brief.negative_prompt}, {NEGATIVE_CONSTRAINTS}".strip()
+            
+            # Create updated brief
+            # note: reference_assets will be refined later in graph, but we set initial here
+            enriched.append(
+                update_model(
                     brief,
                     {
                         "positive_prompt": positive,
                         "negative_prompt": negative,
-                        "potero_shader_version": self.potero_shader_version,
-                    },
-                )
-            enriched.append(
-                update_model(
-                    compiled,
-                    {
                         "reference_assets": reference_assets,
                         "potero_shader_version": self.potero_shader_version,
                     },
@@ -638,7 +671,8 @@ Input:
             return []
         assets: List[str] = []
         assets.extend(self.registry.get_global_assets())
-        assets.extend(self.registry.get_m05_swatches())
+        # M05 swatches removed for Grey Man aesthetic
+        # assets.extend(self.registry.get_m05_swatches())
         assets.extend(self.registry.get_design_assets(design_id))
         return _unique_paths(assets)
 

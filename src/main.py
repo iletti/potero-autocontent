@@ -14,6 +14,7 @@ from src.model_utils import normalize_model_name
 from src.run_storage import RunStorage
 from src.state import RunBudget
 from src.upload_cache import UploadCache
+from src.interaction_logger import InteractionLogger
 
 load_dotenv()
 
@@ -114,6 +115,7 @@ def main():
         base_output_dir=app_config.output_dir,
         run_id=app_config.run_id,
     )
+    interaction_logger = InteractionLogger(log_path=storage.run_dir / "interaction_log.md")
 
     run_budget = RunBudget(
         max_total_calls=app_config.max_total_calls,
@@ -146,6 +148,7 @@ def main():
         potero_anchor_candidates=app_config.potero_anchor_candidates,
         potero_assets_dir=app_config.assets_dir,
         client=client,
+        interaction_logger=interaction_logger,
     )
     fallbacks = [
         normalize_model_name(model)
@@ -157,6 +160,7 @@ def main():
         upload_cache=upload_cache,
         client=client,
         fallbacks=fallbacks,
+        interaction_logger=interaction_logger,
     )
     critic = Critic(
         model_name=normalize_model_name(app_config.critic_model),
@@ -167,18 +171,21 @@ def main():
         allow_warn_pass=app_config.potero_allow_warn_pass,
         upload_cache=upload_cache,
         client=client,
+        interaction_logger=interaction_logger,
     )
     editor = Editor(
         model_name=normalize_model_name(app_config.editor_model),
         mode=app_config.editor_mode,
         client=client,
         upload_cache=upload_cache,
+        interaction_logger=interaction_logger,
     )
     artist_edit = ArtistEdit(
         model_name=normalize_model_name(app_config.artist_model),
         output_dir=storage.run_dir,
         upload_cache=upload_cache,
         client=client,
+        interaction_logger=interaction_logger,
     )
     
     # 1. Plan the carousel

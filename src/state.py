@@ -68,5 +68,6 @@ class SlideBrief(BaseModel):
     lighting_signature: Optional[str] = None
     risk_profile: Optional[str] = None
     reference_roles_required: List[str] = Field(default_factory=list)
+    asset_role_map: Dict[str, str] = Field(default_factory=dict)
     image_aspect: Optional[str] = None
     image_size: Optional[str] = None

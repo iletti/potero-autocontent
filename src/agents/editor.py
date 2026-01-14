@@ -6,6 +6,7 @@ from src.model_utils import update_model
 from src.preflight import STYLE_TIGHTEN_DELTA
 from src.state import SlideBrief
 from src.upload_cache import UploadCache
+from src.interaction_logger import InteractionLogger
 
 class Editor:
     def __init__(
@@ -14,11 +15,13 @@ class Editor:
         mode: str = "rules",
         client: Optional[Any] = None,
         upload_cache: Optional[UploadCache] = None,
+        interaction_logger: Optional[InteractionLogger] = None,
     ):
         self.model_name = model_name
         self.mode = (mode or "rules").strip().lower()
         self.client = client
         self.upload_cache = upload_cache
+        self.interaction_logger = interaction_logger
         self.logger = logging.getLogger(__name__)
 
     def uses_llm(self) -> bool:
@@ -31,11 +34,19 @@ class Editor:
     ) -> SlideBrief:
         if not critic_payload:
             return brief
+        
+        # Repair mode logic is handled by the graph routing, 
+        # but if we are here (Editor Node), it means we are REGENERATING (unless the graph routes to ArtistEdit).
+        # Detailed logic check in graph.py is needed.
+        
         repair_mode = (critic_payload.get("repair_mode") or "").strip().lower()
         opsec_pass = critic_payload.get("opsec_pass")
         potero_score = critic_payload.get("potero_score")
 
         if repair_mode == "edit":
+            # If we ended up in Editor but wanted Edit, we might be correcting prompt for a re-gen that focuses on details?
+            # Or this method is called by ArtistEdit? 
+            # Let's assume this is for prompt refinement.
             instructions = critic_payload.get("repair_instructions") or ""
             return self._apply_defect_fix(brief, instructions)
         if opsec_pass is True and potero_score is not None:
@@ -139,9 +150,14 @@ class Editor:
         try:
             reference_parts = self._load_reference_assets(reference_assets)
             prompt = (
-                "Refine the image prompt without changing the intent. "
-                "Preserve the hoodie and M05 constraints and do not add new text "
-                "or graphics. Return ONLY the refined positive prompt text.\n"
+                "You are an expert AI art director. Your task is to REWRITE the image prompt "
+                "to fix specific defects identified by the critic, while strictly preserving "
+                "the core aesthetic and product details.\n"
+                "1. Integrate the 'Constraints' below naturally into the prompt.\n"
+                "2. Do NOT just append them; rewrite the sentences to logical flow.\n"
+                "3. Preserve the 'Grey Man' / Ranger Green aesthetic if present.\n"
+                "4. Do NOT add new text, logos, or graphics.\n"
+                "5. Return ONLY the refined positive prompt text.\n\n"
                 f"Base prompt: {base_prompt}\n"
                 f"Constraints: {constraints}\n"
                 f"Negative prompt: {negative_prompt}\n"
@@ -152,6 +168,17 @@ class Editor:
                 contents=[prompt, *reference_parts],
             )
             text = getattr(response, "text", None) or str(response)
+
+            if self.interaction_logger:
+                self.interaction_logger.log(
+                    agent="Editor",
+                    step="refine_prompt",
+                    model=self.model_name,
+                    prompt=prompt,
+                    response=text,
+                    metadata={"constraints": constraints}
+                )
+
             return text.strip()
         except Exception as exc:
             self.logger.warning(
