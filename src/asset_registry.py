@@ -9,6 +9,17 @@ class AssetRegistryError(Exception):
 
 
 @dataclass(frozen=True)
+class AssetRecord:
+    path: str
+    role: Optional[str] = None
+    tags: List[str] = None
+
+    def __post_init__(self) -> None:
+        if self.tags is None:
+            object.__setattr__(self, "tags", [])
+
+
+@dataclass(frozen=True)
 class AssetRegistry:
     references_dir: Path
     manifest_path: Path
@@ -45,8 +56,8 @@ class AssetRegistry:
 
     def validate(self) -> List[str]:
         missing: List[str] = []
-        for raw_path in self._collect_paths():
-            rel_path = self._ensure_relative(raw_path)
+        for record in self._collect_records():
+            rel_path = self._ensure_relative(record.path)
             absolute = self.references_dir / rel_path
             if not absolute.exists():
                 missing.append(str(rel_path))
@@ -74,7 +85,7 @@ class AssetRegistry:
         return missing
 
     def asset_count(self) -> int:
-        return len(self._collect_paths())
+        return len(self._collect_records())
 
     def get_global_assets(self) -> List[str]:
         return self._resolve_list(
@@ -95,19 +106,34 @@ class AssetRegistry:
             return []
         return self._resolve_list(self._extract_paths(entry))
 
-    def _collect_paths(self) -> List[str]:
-        paths: List[str] = []
-        paths.extend(
-            self._extract_paths(self.manifest.get("global_references", []))
+    def get_assets_by_role(self, roles: List[str]) -> Dict[str, List[str]]:
+        if not roles:
+            return {}
+        requested = {role for role in roles if role}
+        if not requested:
+            return {}
+        matches = {role: [] for role in requested}
+        for record in self._collect_records():
+            if record.role in requested:
+                rel_path = self._ensure_relative(record.path)
+                matches[record.role].append(
+                    str(self.references_dir / rel_path)
+                )
+        return matches
+
+    def _collect_records(self) -> List[AssetRecord]:
+        records: List[AssetRecord] = []
+        records.extend(
+            self._extract_records(self.manifest.get("global_references", []))
         )
-        paths.extend(
-            self._extract_paths(self.manifest.get("m05_swatches", []))
+        records.extend(
+            self._extract_records(self.manifest.get("m05_swatches", []))
         )
         designs = self.manifest.get("designs", {})
         if isinstance(designs, dict):
             for entry in designs.values():
-                paths.extend(self._extract_paths(entry))
-        return paths
+                records.extend(self._extract_records(entry))
+        return records
 
     def _resolve_list(self, paths: List[str]) -> List[str]:
         resolved: List[str] = []
@@ -117,23 +143,46 @@ class AssetRegistry:
         return resolved
 
     def _extract_paths(self, value: Any) -> List[str]:
+        return [record.path for record in self._extract_records(value)]
+
+    def _extract_records(self, value: Any) -> List[AssetRecord]:
         if value is None:
             return []
         if isinstance(value, str):
-            return [value]
+            return [AssetRecord(path=value)]
         if isinstance(value, list):
-            if not all(isinstance(item, str) for item in value):
-                raise AssetRegistryError(
-                    "Manifest list entries must be strings."
-                )
-            return value
+            records: List[AssetRecord] = []
+            for item in value:
+                records.extend(self._extract_records(item))
+            return records
         if isinstance(value, dict):
+            if "path" in value:
+                path = value.get("path")
+                if not isinstance(path, str):
+                    raise AssetRegistryError(
+                        "Manifest asset path must be a string."
+                    )
+                role = value.get("role")
+                if role is not None and not isinstance(role, str):
+                    raise AssetRegistryError(
+                        "Manifest asset role must be a string."
+                    )
+                tags = value.get("tags") or []
+                if not isinstance(tags, list) or not all(
+                    isinstance(tag, str) for tag in tags
+                ):
+                    raise AssetRegistryError(
+                        "Manifest asset tags must be a list of strings."
+                    )
+                return [AssetRecord(path=path, role=role, tags=tags)]
             if not all(isinstance(item, str) for item in value.values()):
                 raise AssetRegistryError(
                     "Manifest dict entries must be strings."
                 )
-            return list(value.values())
-        raise AssetRegistryError("Manifest entries must be string, list, or dict.")
+            return [AssetRecord(path=item) for item in value.values()]
+        raise AssetRegistryError(
+            "Manifest entries must be string, list, or dict."
+        )
 
     def _ensure_relative(self, path_str: str) -> Path:
         path = Path(path_str)

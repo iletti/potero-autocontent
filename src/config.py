@@ -16,6 +16,16 @@ class AppConfig:
     run_id: str
     theme_id: Optional[str]
     design_id: Optional[str]
+    potero_shader_version: str
+    potero_image_aspect: str
+    potero_image_size: str
+    potero_allow_warn_pass: bool
+    potero_pass_threshold: float
+    potero_warn_threshold: float
+    potero_enable_edit_mode: bool
+    potero_max_refs_per_call: int
+    potero_max_refs_hard: int
+    potero_anchor_candidates: int
     planner_mode: str
     critic_model: str
     critic_warn_threshold: int
@@ -67,6 +77,30 @@ def load_config() -> AppConfig:
     run_id = os.getenv("POTERO_RUN_ID") or uuid.uuid4().hex
     theme_id = os.getenv("POTERO_THEME_ID")
     design_id = os.getenv("POTERO_DESIGN_ID")
+    potero_shader_version = os.getenv("POTERO_SHADER_VERSION", "v1_1").strip()
+    potero_image_aspect = os.getenv("POTERO_IMAGE_ASPECT", "4:5").strip()
+    potero_image_size = os.getenv("POTERO_IMAGE_SIZE", "2K").strip()
+    potero_allow_warn_pass = _parse_bool(
+        os.getenv("POTERO_ALLOW_WARN_PASS"), False
+    )
+    potero_pass_threshold = float(
+        os.getenv("POTERO_POTERO_PASS_THRESHOLD", "7.5")
+    )
+    potero_warn_threshold = float(
+        os.getenv("POTERO_POTERO_WARN_THRESHOLD", "6.0")
+    )
+    potero_enable_edit_mode = _parse_bool(
+        os.getenv("POTERO_ENABLE_EDIT_MODE"), True
+    )
+    potero_max_refs_per_call = int(
+        os.getenv("POTERO_MAX_REFS_PER_CALL", "10")
+    )
+    potero_max_refs_hard = int(
+        os.getenv("POTERO_MAX_REFS_HARD", "14")
+    )
+    potero_anchor_candidates = int(
+        os.getenv("POTERO_ANCHOR_CANDIDATES", "3")
+    )
     planner_mode = os.getenv("POTERO_PLANNER_MODE", "template").strip().lower()
     critic_model = os.getenv("POTERO_CRITIC_MODEL", "gemini-1.5-flash")
     critic_warn_threshold = int(os.getenv("POTERO_CRITIC_WARN_THRESHOLD", "85"))
@@ -103,6 +137,16 @@ def load_config() -> AppConfig:
         run_id=run_id,
         theme_id=theme_id,
         design_id=design_id,
+        potero_shader_version=potero_shader_version,
+        potero_image_aspect=potero_image_aspect,
+        potero_image_size=potero_image_size,
+        potero_allow_warn_pass=potero_allow_warn_pass,
+        potero_pass_threshold=potero_pass_threshold,
+        potero_warn_threshold=potero_warn_threshold,
+        potero_enable_edit_mode=potero_enable_edit_mode,
+        potero_max_refs_per_call=potero_max_refs_per_call,
+        potero_max_refs_hard=potero_max_refs_hard,
+        potero_anchor_candidates=potero_anchor_candidates,
         planner_mode=planner_mode,
         critic_model=critic_model,
         critic_warn_threshold=critic_warn_threshold,

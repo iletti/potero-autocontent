@@ -1,13 +1,165 @@
 {
-  "global_references": [],
+  "global_references": [
+    {
+      "path": "LIGHTING_LOFI_FLASH/lofi_flash_01.jpg",
+      "role": "LIGHTING_LOFI_FLASH",
+      "tags": ["flash", "lofi"]
+    },
+    {
+      "path": "LIGHTING_LOFI_FLASH/lofi_flash_02.jpg",
+      "role": "LIGHTING_LOFI_FLASH",
+      "tags": ["flash", "lofi"]
+    },
+    {
+      "path": "ENV_TAIGA_SUMMER_NIGHT/taiga_summer_night_01.jpg",
+      "role": "ENV_TAIGA_SUMMER_NIGHT",
+      "tags": ["taiga", "summer", "night"]
+    },
+    {
+      "path": "ENV_TAIGA_WINTER_KAAMOS/taiga_winter_kaamos_01.jpg",
+      "role": "ENV_TAIGA_WINTER_KAAMOS",
+      "tags": ["taiga", "winter", "kaamos"]
+    },
+    {
+      "path": "ENV_CQB_OSB/cqb_osb_01.jpg",
+      "role": "ENV_CQB_OSB",
+      "tags": ["cqb", "osb"]
+    },
+    {
+      "path": "ENV_INDUSTRIAL_HALL/industrial_hall_01.jpg",
+      "role": "ENV_INDUSTRIAL_HALL",
+      "tags": ["industrial", "hall"]
+    },
+    {
+      "path": "ENV_SHELTER/shelter_brutalist_01.jpg",
+      "role": "ENV_SHELTER",
+      "tags": ["shelter", "brutalist"]
+    },
+    {
+      "path": "TEXTURE_M05_WOODLAND/m05_woodland_01.jpg",
+      "role": "TEXTURE_M05_WOODLAND",
+      "tags": ["m05", "woodland"]
+    },
+    {
+      "path": "TEXTURE_M05_SNOW/m05_snow_01.jpg",
+      "role": "TEXTURE_M05_SNOW",
+      "tags": ["m05", "snow"]
+    },
+    {
+      "path": "WEAPON_RK95_LEFT/rk95_left_01.jpg",
+      "role": "WEAPON_RK95_LEFT",
+      "tags": ["rk95", "left"]
+    },
+    {
+      "path": "WEAPON_RK95_RIGHT/rk95_right_01.jpg",
+      "role": "WEAPON_RK95_RIGHT",
+      "tags": ["rk95", "right"]
+    },
+    {
+      "path": "WEAPON_RK95_MUZZLE_CLOSE/rk95_muzzle_01.jpg",
+      "role": "WEAPON_RK95_MUZZLE_CLOSE",
+      "tags": ["rk95", "muzzle"]
+    },
+    {
+      "path": "WEAPON_RK95_RECEIVER_STOCK/rk95_receiver_stock_01.jpg",
+      "role": "WEAPON_RK95_RECEIVER_STOCK",
+      "tags": ["rk95", "receiver"]
+    },
+    {
+      "path": "GEAR_PLATE_CARRIER_LAYOUT/plate_carrier_layout_01.jpg",
+      "role": "GEAR_PLATE_CARRIER_LAYOUT",
+      "tags": ["carrier", "layout"]
+    },
+    {
+      "path": "GEAR_POUCHES_DETAIL/pouches_detail_01.jpg",
+      "role": "GEAR_POUCHES_DETAIL",
+      "tags": ["pouch", "detail"]
+    },
+    {
+      "path": "GEAR_BELT_DUMP_POUCH/belt_dump_pouch_01.jpg",
+      "role": "GEAR_BELT_DUMP_POUCH",
+      "tags": ["belt", "dump"]
+    },
+    {
+      "path": "GEAR_BACKPACK_JAAKARI_34/jaakari_34_01.jpg",
+      "role": "GEAR_BACKPACK_JAAKARI_34",
+      "tags": ["savotta", "jaakari"]
+    },
+    {
+      "path": "GEAR_PALS_CLOSE/pals_close_01.jpg",
+      "role": "GEAR_PALS_CLOSE",
+      "tags": ["pals", "webbing"]
+    },
+    {
+      "path": "GEAR_STRAPS_CONNECT/straps_connect_01.jpg",
+      "role": "GEAR_STRAPS_CONNECT",
+      "tags": ["straps", "connect"]
+    },
+    {
+      "path": "GEAR_HELMET_HIGH_CUT/helmet_high_cut_01.jpg",
+      "role": "GEAR_HELMET_HIGH_CUT",
+      "tags": ["helmet", "highcut"]
+    },
+    {
+      "path": "GEAR_HEADSET_COMTAC/headset_comtac_01.jpg",
+      "role": "GEAR_HEADSET_COMTAC",
+      "tags": ["headset", "comtac"]
+    },
+    {
+      "path": "GEAR_GLOVES_MECHANIX/gloves_mechanix_01.jpg",
+      "role": "GEAR_GLOVES_MECHANIX",
+      "tags": ["gloves", "mechanix"]
+    },
+    {
+      "path": "GEAR_BOOTS_BLACK/boots_black_01.jpg",
+      "role": "GEAR_BOOTS_BLACK",
+      "tags": ["boots", "black"]
+    },
+    {
+      "path": "PROPS_KUKSA/kuksa_01.jpg",
+      "role": "PROPS_KUKSA",
+      "tags": ["kuksa"]
+    },
+    {
+      "path": "PROPS_NOKIPANNU/nokipannu_01.jpg",
+      "role": "PROPS_NOKIPANNU",
+      "tags": ["nokipannu"]
+    },
+    {
+      "path": "PROPS_WATER_CAN/water_can_01.jpg",
+      "role": "PROPS_WATER_CAN",
+      "tags": ["water"]
+    },
+    {
+      "path": "PROPS_MAINTENANCE/maintenance_01.jpg",
+      "role": "PROPS_MAINTENANCE",
+      "tags": ["maintenance"]
+    }
+  ],
   "m05_swatches": [
-    "m05/m05_swatch.jpg"
+    {
+      "path": "m05/m05_swatch.jpg",
+      "role": "TEXTURE_M05_WOODLAND",
+      "tags": ["m05", "woodland"]
+    }
   ],
   "designs": {
     "rk_hoodie": [
-      "hoodies/hoodie_rk_black_front.webp",
-      "hoodies/hoodie_rk_black_back.webp",
-      "hoodies/hoodie_rk_black_side.webp"
+      {
+        "path": "hoodies/hoodie_rk_black_front.webp",
+        "role": "DESIGN_FRONT",
+        "tags": ["front"]
+      },
+      {
+        "path": "hoodies/hoodie_rk_black_back.webp",
+        "role": "DESIGN_BACK",
+        "tags": ["back"]
+      },
+      {
+        "path": "hoodies/hoodie_rk_black_side.webp",
+        "role": "DESIGN_SIDE",
+        "tags": ["side"]
+      }
     ]
   }
 }

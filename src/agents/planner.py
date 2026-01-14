@@ -1,8 +1,10 @@
 import json
 import logging
+from pathlib import Path
 from typing import Any, List, Optional
 
 from src.asset_registry import AssetRegistry
+from src.prompt_compiler import compile_brief, PromptCompilerError
 from src.model_utils import model_dump, update_model
 from src.budget import can_consume, consume
 from src.state import (
@@ -56,6 +58,50 @@ TEMPLATE_SHOTS = [
     "gear_detail",
     "final_brand_shot",
 ]
+
+INTENT_BY_SHOT = {
+    "hero_shot": "transition",
+    "close_up_texture": "artifact_detail",
+    "tactical_action": "mobilization",
+    "gear_detail": "field_wait",
+    "final_brand_shot": "domestic_front",
+}
+
+RISK_BY_SHOT = {
+    "hero_shot": "medium",
+    "close_up_texture": "low",
+    "tactical_action": "medium",
+    "gear_detail": "medium",
+    "final_brand_shot": "low",
+}
+
+ENV_PRESET_BY_TOKEN = {
+    "kaamos": "taiga_winter_kaamos",
+    "winter": "taiga_winter_kaamos",
+    "snow": "taiga_winter_kaamos",
+    "cqb": "cqb_osb",
+    "osb": "cqb_osb",
+    "industrial": "industrial_hall",
+    "hall": "industrial_hall",
+    "shelter": "shelter_brutalist",
+    "bunker": "shelter_brutalist",
+}
+
+ENV_ROLE_BY_PRESET = {
+    "taiga_winter_kaamos": "ENV_TAIGA_WINTER_KAAMOS",
+    "taiga_summer": "ENV_TAIGA_SUMMER_NIGHT",
+    "cqb_osb": "ENV_CQB_OSB",
+    "industrial_hall": "ENV_INDUSTRIAL_HALL",
+    "shelter_brutalist": "ENV_SHELTER",
+}
+
+M05_ROLE_BY_PRESET = {
+    "taiga_winter_kaamos": "TEXTURE_M05_SNOW",
+    "taiga_summer": "TEXTURE_M05_WOODLAND",
+    "cqb_osb": "TEXTURE_M05_WOODLAND",
+    "industrial_hall": "TEXTURE_M05_WOODLAND",
+    "shelter_brutalist": "TEXTURE_M05_WOODLAND",
+}
 
 THEME_TEMPLATES = {
     "winter_ambush": [
@@ -115,12 +161,36 @@ class Planner:
         model_name: str = "gemini-1.5-pro",
         registry: Optional[AssetRegistry] = None,
         planner_mode: str = "template",
+        potero_shader_version: str = "v1_1",
+        potero_image_aspect: str = "4:5",
+        potero_image_size: str = "2K",
+        potero_allow_warn_pass: bool = False,
+        potero_pass_threshold: float = 7.5,
+        potero_warn_threshold: float = 6.0,
+        potero_enable_edit_mode: bool = True,
+        potero_max_refs_per_call: int = 10,
+        potero_max_refs_hard: int = 14,
+        potero_anchor_candidates: int = 3,
+        potero_assets_dir: Optional[Path] = None,
         client: Optional[Any] = None,
     ):
         self.model_name = model_name
         self.registry = registry
         self.logger = logging.getLogger(__name__)
         self.planner_mode = planner_mode
+        self.potero_shader_version = potero_shader_version
+        self.potero_image_aspect = potero_image_aspect
+        self.potero_image_size = potero_image_size
+        self.potero_allow_warn_pass = potero_allow_warn_pass
+        self.potero_pass_threshold = potero_pass_threshold
+        self.potero_warn_threshold = potero_warn_threshold
+        self.potero_enable_edit_mode = potero_enable_edit_mode
+        self.potero_max_refs_per_call = potero_max_refs_per_call
+        self.potero_max_refs_hard = potero_max_refs_hard
+        self.potero_anchor_candidates = potero_anchor_candidates
+        if potero_assets_dir is None:
+            potero_assets_dir = Path(__file__).resolve().parents[2] / "assets"
+        self.potero_assets_dir = potero_assets_dir
         self.client = client
 
     def plan_carousel(
@@ -135,7 +205,17 @@ class Planner:
         global_constraints = GlobalConstraints(
             design_id_locked=design_id,
             environment=theme_id, # Simplified for now
-            aspect_ratio="4:5"
+            aspect_ratio="4:5",
+            potero_shader_version=self.potero_shader_version,
+            image_aspect=self.potero_image_aspect,
+            image_size=self.potero_image_size,
+            allow_warn_pass=self.potero_allow_warn_pass,
+            potero_pass_threshold=self.potero_pass_threshold,
+            potero_warn_threshold=self.potero_warn_threshold,
+            enable_edit_mode=self.potero_enable_edit_mode,
+            max_refs_per_call=self.potero_max_refs_per_call,
+            max_refs_hard=self.potero_max_refs_hard,
+            anchor_candidates=self.potero_anchor_candidates,
         )
         
         slides = [SlideState(index=i) for i in range(1, 6)]
@@ -194,16 +274,17 @@ class Planner:
             template = self._default_template(theme)
         briefs: List[SlideBrief] = []
         for idx, entry in enumerate(template, start=1):
-            briefs.append(
-                SlideBrief(
-                    index=idx,
-                    shot_type=entry.get("shot_type", TEMPLATE_SHOTS[idx - 1]),
-                    positive_prompt=entry.get("positive_prompt", ""),
-                    negative_prompt="unapproved text, face, watermark",
-                    reference_assets=reference_assets,
-                    composition_guidance=entry.get("composition_guidance"),
-                )
+            shot_type = entry.get("shot_type", TEMPLATE_SHOTS[idx - 1])
+            brief = SlideBrief(
+                index=idx,
+                shot_type=shot_type,
+                positive_prompt=entry.get("positive_prompt", ""),
+                negative_prompt="unapproved text, face, watermark",
+                reference_assets=reference_assets,
+                composition_guidance=entry.get("composition_guidance"),
+                potero_shader_version=self.potero_shader_version,
             )
+            briefs.append(self._apply_metadata(state, brief))
         return self._enforce_invariants(briefs, reference_assets)
 
     def _default_template(self, theme: str) -> List[dict]:
@@ -251,6 +332,113 @@ class Planner:
             },
         ]
 
+    def _apply_metadata(
+        self,
+        state: CarouselState,
+        brief: SlideBrief,
+    ) -> SlideBrief:
+        env_preset = brief.env_preset or self._infer_env_preset(
+            state.global_constraints.environment
+        )
+        intent = brief.intent or INTENT_BY_SHOT.get(
+            brief.shot_type, "field_wait"
+        )
+        lighting_signature = brief.lighting_signature or self._infer_lighting(
+            env_preset
+        )
+        risk_profile = brief.risk_profile or RISK_BY_SHOT.get(
+            brief.shot_type, "medium"
+        )
+        kit_anchors = brief.kit_anchors or self._infer_kit_anchors(
+            brief.positive_prompt
+        )
+        required_roles = brief.reference_roles_required or self._infer_roles(
+            env_preset, kit_anchors, brief.positive_prompt
+        )
+        return update_model(
+            brief,
+            {
+                "intent": intent,
+                "continuum_cue": brief.continuum_cue,
+                "kit_anchors": kit_anchors,
+                "env_preset": env_preset,
+                "lighting_signature": lighting_signature,
+                "risk_profile": risk_profile,
+                "reference_roles_required": required_roles,
+                "image_aspect": state.global_constraints.image_aspect,
+                "image_size": state.global_constraints.image_size,
+            },
+        )
+
+    def _infer_env_preset(self, theme: str) -> str:
+        lowered = (theme or "").lower()
+        for token, preset in ENV_PRESET_BY_TOKEN.items():
+            if token in lowered:
+                return preset
+        return "taiga_summer"
+
+    def _infer_lighting(self, env_preset: str) -> str:
+        if env_preset == "taiga_winter_kaamos":
+            return "lofi_flash_on_axis_kaamos"
+        return "lofi_flash_on_axis"
+
+    def _infer_kit_anchors(self, prompt: str) -> List[str]:
+        lowered = (prompt or "").lower()
+        anchors = ["M05_CAMO"]
+        if "rifle" in lowered or "weapon" in lowered:
+            anchors.append("RK95_TP")
+        if "backpack" in lowered or "pack" in lowered:
+            anchors.append("SAVOTTA_JAAKARI_34")
+            anchors.append("PALS_WEBBING")
+        if "plate carrier" in lowered or "carrier" in lowered or "rig" in lowered:
+            anchors.append("RES_TAC_CARRIER")
+        if "pouch" in lowered:
+            anchors.append("M05_BELT_DUMP_POUCH")
+        if "headset" in lowered or "comms" in lowered:
+            anchors.append("COMTAC_HEADSET")
+        if "helmet" in lowered:
+            anchors.append("PGD_HIGH_CUT")
+        if "glove" in lowered:
+            anchors.append("MECHANIX_GLOVES")
+        if "boot" in lowered:
+            anchors.append("BLACK_COMBAT_BOOTS")
+        return _unique_list(anchors)
+
+    def _infer_roles(
+        self,
+        env_preset: str,
+        kit_anchors: List[str],
+        prompt: str,
+    ) -> List[str]:
+        roles: List[str] = []
+        env_role = ENV_ROLE_BY_PRESET.get(env_preset)
+        if env_role:
+            roles.append(env_role)
+        m05_role = M05_ROLE_BY_PRESET.get(env_preset, "TEXTURE_M05_WOODLAND")
+        roles.append(m05_role)
+
+        if "RK95_TP" in kit_anchors or "rifle" in (prompt or "").lower():
+            roles.extend(["WEAPON_RK95_LEFT", "WEAPON_RK95_MUZZLE_CLOSE"])
+        if "SAVOTTA_JAAKARI_34" in kit_anchors or "PALS_WEBBING" in kit_anchors:
+            roles.extend(
+                [
+                    "GEAR_BACKPACK_JAAKARI_34",
+                    "GEAR_PALS_CLOSE",
+                    "GEAR_STRAPS_CONNECT",
+                ]
+            )
+        if "RES_TAC_CARRIER" in kit_anchors:
+            roles.extend(
+                [
+                    "GEAR_PLATE_CARRIER_LAYOUT",
+                    "GEAR_POUCHES_DETAIL",
+                ]
+            )
+        if "COMTAC_HEADSET" in kit_anchors:
+            roles.append("GEAR_HEADSET_COMTAC")
+        if "PGD_HIGH_CUT" in kit_anchors:
+            roles.append("GEAR_HELMET_HIGH_CUT")
+        return _unique_list(roles)
     def _refine_briefs_with_llm(
         self,
         briefs: List[SlideBrief],
@@ -327,18 +515,36 @@ Input:
     ) -> List[SlideBrief]:
         enriched: List[SlideBrief] = []
         for brief in briefs:
-            positive = (
-                f"{GLOBAL_STYLE_BLOCK} {DESIGN_INVARIANTS} "
-                f"{brief.positive_prompt}"
-            ).strip()
-            negative = f"{brief.negative_prompt}, {NEGATIVE_CONSTRAINTS}".strip()
-            enriched.append(
-                update_model(
+            try:
+                compiled = compile_brief(
+                    brief,
+                    assets_dir=self.potero_assets_dir,
+                    shader_version=self.potero_shader_version,
+                )
+            except PromptCompilerError as exc:
+                self.logger.warning(
+                    "prompt_compiler_failed",
+                    extra={"error": str(exc)},
+                )
+                positive = (
+                    f"{GLOBAL_STYLE_BLOCK} {DESIGN_INVARIANTS} "
+                    f"{brief.positive_prompt}"
+                ).strip()
+                negative = f"{brief.negative_prompt}, {NEGATIVE_CONSTRAINTS}".strip()
+                compiled = update_model(
                     brief,
                     {
                         "positive_prompt": positive,
                         "negative_prompt": negative,
+                        "potero_shader_version": self.potero_shader_version,
+                    },
+                )
+            enriched.append(
+                update_model(
+                    compiled,
+                    {
                         "reference_assets": reference_assets,
+                        "potero_shader_version": self.potero_shader_version,
                     },
                 )
             )
@@ -360,22 +566,22 @@ Input:
     ) -> List[SlideBrief]:
         briefs: List[SlideBrief] = []
         for slide in state.slides:
-            briefs.append(
-                SlideBrief(
-                    index=slide.index,
-                    shot_type="placeholder",
-                    positive_prompt=(
-                        f"{GLOBAL_STYLE_BLOCK} Placeholder prompt for slide "
-                        f"{slide.index} of theme "
-                        f"{state.global_constraints.environment}"
-                    ),
-                    negative_prompt=(
-                        f"unapproved text, face, watermark, {NEGATIVE_CONSTRAINTS}"
-                    ),
-                    reference_assets=reference_assets,
-                    composition_guidance="Leave top-left quadrant empty for text.",
-                )
+            brief = SlideBrief(
+                index=slide.index,
+                shot_type="placeholder",
+                positive_prompt=(
+                    f"{GLOBAL_STYLE_BLOCK} Placeholder prompt for slide "
+                    f"{slide.index} of theme "
+                    f"{state.global_constraints.environment}"
+                ),
+                negative_prompt=(
+                    f"unapproved text, face, watermark, {NEGATIVE_CONSTRAINTS}"
+                ),
+                reference_assets=reference_assets,
+                composition_guidance="Leave top-left quadrant empty for text.",
+                potero_shader_version=self.potero_shader_version,
             )
+            briefs.append(self._apply_metadata(state, brief))
         return briefs
 
     def _resolve_reference_assets(self, design_id: str) -> List[str]:
@@ -396,6 +602,17 @@ def _unique_paths(paths: List[str]) -> List[str]:
             continue
         seen.add(path)
         deduped.append(path)
+    return deduped
+
+
+def _unique_list(values: List[str]) -> List[str]:
+    seen = set()
+    deduped: List[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        deduped.append(value)
     return deduped
 
 

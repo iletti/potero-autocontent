@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any, List, Optional
 
 from src.model_utils import update_model
+from src.preflight import STYLE_TIGHTEN_DELTA
 from src.state import SlideBrief
 from src.upload_cache import UploadCache
 
@@ -22,6 +23,24 @@ class Editor:
 
     def uses_llm(self) -> bool:
         return self.mode == "llm"
+
+    def refine_with_mode(
+        self,
+        brief: SlideBrief,
+        critic_payload: Optional[dict],
+    ) -> SlideBrief:
+        if not critic_payload:
+            return brief
+        repair_mode = (critic_payload.get("repair_mode") or "").strip().lower()
+        opsec_pass = critic_payload.get("opsec_pass")
+        potero_score = critic_payload.get("potero_score")
+
+        if repair_mode == "edit":
+            instructions = critic_payload.get("repair_instructions") or ""
+            return self._apply_defect_fix(brief, instructions)
+        if opsec_pass is True and potero_score is not None:
+            return self._apply_style_tighten(brief, potero_score)
+        return brief
 
     def refine_brief(
         self,
@@ -57,6 +76,23 @@ class Editor:
 
         refined_prompt = self._merge_prompt(base_prompt, constraints)
         return update_model(brief, {"positive_prompt": refined_prompt})
+
+    def _apply_style_tighten(self, brief: SlideBrief, potero_score: float) -> SlideBrief:
+        if potero_score >= 7.5:
+            return brief
+        delta = STYLE_TIGHTEN_DELTA
+        return update_model(
+            brief,
+            {"positive_prompt": self._merge_prompt(brief.positive_prompt, delta)},
+        )
+
+    def _apply_defect_fix(self, brief: SlideBrief, instructions: str) -> SlideBrief:
+        if not instructions:
+            return brief
+        return update_model(
+            brief,
+            {"positive_prompt": self._merge_prompt(brief.positive_prompt, instructions)},
+        )
 
     def _strip_constraints(self, prompt: str) -> str:
         marker = "\nConstraints:"

@@ -39,8 +39,14 @@ class TestAssetRegistry(unittest.TestCase):
 
             manifest = {
                 "global_references": [],
-                "m05_swatches": ["m05/m05.png"],
-                "designs": {"hoodie_013": {"front": "hoodies/h.png"}},
+                "m05_swatches": [
+                    {"path": "m05/m05.png", "role": "TEXTURE_M05_WOODLAND"}
+                ],
+                "designs": {
+                    "hoodie_013": [
+                        {"path": "hoodies/h.png", "role": "DESIGN_FRONT"}
+                    ]
+                },
             }
             self._write_manifest(references, manifest)
             registry = AssetRegistry.load(references)
@@ -73,7 +79,7 @@ class TestAssetRegistry(unittest.TestCase):
             references = Path(tmpdir) / "references"
             references.mkdir()
             manifest = {
-                "global_references": ["/etc/passwd"],
+                "global_references": [{"path": "/etc/passwd", "role": "ENV_BAD"}],
                 "m05_swatches": [],
                 "designs": {},
             }

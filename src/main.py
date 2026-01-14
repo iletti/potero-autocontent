@@ -1,12 +1,11 @@
 import argparse
 import logging
-
-from google import genai
 from dotenv import load_dotenv
 from src.agents.planner import Planner
 from src.agents.artist import Artist
 from src.agents.critic import Critic
 from src.agents.editor import Editor
+from src.agents.artist_edit import ArtistEdit
 from src.asset_registry import AssetRegistry, AssetRegistryError
 from src.config import load_config
 from src.graph import create_graph, GraphState
@@ -56,6 +55,7 @@ def _normalize_model_name(name: str) -> str:
 
 
 def main():
+    from google import genai
     app_config = load_config()
     configure_logging(app_config)
     logger = logging.getLogger(__name__)
@@ -141,6 +141,17 @@ def main():
         model_name=_normalize_model_name(app_config.planner_model),
         registry=registry,
         planner_mode=app_config.planner_mode,
+        potero_shader_version=app_config.potero_shader_version,
+        potero_image_aspect=app_config.potero_image_aspect,
+        potero_image_size=app_config.potero_image_size,
+        potero_allow_warn_pass=app_config.potero_allow_warn_pass,
+        potero_pass_threshold=app_config.potero_pass_threshold,
+        potero_warn_threshold=app_config.potero_warn_threshold,
+        potero_enable_edit_mode=app_config.potero_enable_edit_mode,
+        potero_max_refs_per_call=app_config.potero_max_refs_per_call,
+        potero_max_refs_hard=app_config.potero_max_refs_hard,
+        potero_anchor_candidates=app_config.potero_anchor_candidates,
+        potero_assets_dir=app_config.assets_dir,
         client=client,
     )
     fallbacks = [
@@ -158,6 +169,9 @@ def main():
         model_name=_normalize_model_name(app_config.critic_model),
         warn_threshold=app_config.critic_warn_threshold,
         fail_threshold=app_config.critic_fail_threshold,
+        potero_pass_threshold=app_config.potero_pass_threshold,
+        potero_warn_threshold=app_config.potero_warn_threshold,
+        allow_warn_pass=app_config.potero_allow_warn_pass,
         upload_cache=upload_cache,
         client=client,
     )
@@ -166,6 +180,12 @@ def main():
         mode=app_config.editor_mode,
         client=client,
         upload_cache=upload_cache,
+    )
+    artist_edit = ArtistEdit(
+        model_name=_normalize_model_name(app_config.artist_model),
+        output_dir=storage.run_dir,
+        upload_cache=upload_cache,
+        client=client,
     )
     
     # 1. Plan the carousel
@@ -215,6 +235,136 @@ def main():
                 },
             )
             return
+        if (
+            state.global_constraints.potero_shader_version
+            != app_config.potero_shader_version
+        ):
+            logger.error(
+                "shader_version_mismatch_for_run",
+                extra={
+                    "run_id": app_config.run_id,
+                    "expected": state.global_constraints.potero_shader_version,
+                    "received": app_config.potero_shader_version,
+                },
+            )
+            return
+        if (
+            state.global_constraints.image_aspect
+            != app_config.potero_image_aspect
+        ):
+            logger.error(
+                "image_aspect_mismatch_for_run",
+                extra={
+                    "run_id": app_config.run_id,
+                    "expected": state.global_constraints.image_aspect,
+                    "received": app_config.potero_image_aspect,
+                },
+            )
+            return
+        if (
+            state.global_constraints.image_size
+            != app_config.potero_image_size
+        ):
+            logger.error(
+                "image_size_mismatch_for_run",
+                extra={
+                    "run_id": app_config.run_id,
+                    "expected": state.global_constraints.image_size,
+                    "received": app_config.potero_image_size,
+                },
+            )
+            return
+        if (
+            state.global_constraints.allow_warn_pass
+            != app_config.potero_allow_warn_pass
+        ):
+            logger.error(
+                "allow_warn_pass_mismatch_for_run",
+                extra={
+                    "run_id": app_config.run_id,
+                    "expected": state.global_constraints.allow_warn_pass,
+                    "received": app_config.potero_allow_warn_pass,
+                },
+            )
+            return
+        if (
+            state.global_constraints.potero_pass_threshold
+            != app_config.potero_pass_threshold
+        ):
+            logger.error(
+                "potero_pass_threshold_mismatch_for_run",
+                extra={
+                    "run_id": app_config.run_id,
+                    "expected": state.global_constraints.potero_pass_threshold,
+                    "received": app_config.potero_pass_threshold,
+                },
+            )
+            return
+        if (
+            state.global_constraints.potero_warn_threshold
+            != app_config.potero_warn_threshold
+        ):
+            logger.error(
+                "potero_warn_threshold_mismatch_for_run",
+                extra={
+                    "run_id": app_config.run_id,
+                    "expected": state.global_constraints.potero_warn_threshold,
+                    "received": app_config.potero_warn_threshold,
+                },
+            )
+            return
+        if (
+            state.global_constraints.enable_edit_mode
+            != app_config.potero_enable_edit_mode
+        ):
+            logger.error(
+                "edit_mode_mismatch_for_run",
+                extra={
+                    "run_id": app_config.run_id,
+                    "expected": state.global_constraints.enable_edit_mode,
+                    "received": app_config.potero_enable_edit_mode,
+                },
+            )
+            return
+        if (
+            state.global_constraints.max_refs_per_call
+            != app_config.potero_max_refs_per_call
+        ):
+            logger.error(
+                "max_refs_per_call_mismatch_for_run",
+                extra={
+                    "run_id": app_config.run_id,
+                    "expected": state.global_constraints.max_refs_per_call,
+                    "received": app_config.potero_max_refs_per_call,
+                },
+            )
+            return
+        if (
+            state.global_constraints.max_refs_hard
+            != app_config.potero_max_refs_hard
+        ):
+            logger.error(
+                "max_refs_hard_mismatch_for_run",
+                extra={
+                    "run_id": app_config.run_id,
+                    "expected": state.global_constraints.max_refs_hard,
+                    "received": app_config.potero_max_refs_hard,
+                },
+            )
+            return
+        if (
+            state.global_constraints.anchor_candidates
+            != app_config.potero_anchor_candidates
+        ):
+            logger.error(
+                "anchor_candidates_mismatch_for_run",
+                extra={
+                    "run_id": app_config.run_id,
+                    "expected": state.global_constraints.anchor_candidates,
+                    "received": app_config.potero_anchor_candidates,
+                },
+            )
+            return
         state.current_slide_index = _first_incomplete_index(state)
         if state.current_slide_index is None:
             logger.info("run_already_complete", extra={"run_id": app_config.run_id})
@@ -242,6 +392,7 @@ def main():
         artist=artist,
         critic=critic,
         editor=editor,
+        artist_edit=artist_edit,
         storage=storage,
     )
     app = workflow.compile()

@@ -1,0 +1,30 @@
+{
+  "version": "v1",
+  "intents": {
+    "domestic_front": {
+      "label": "Domestic front",
+      "notes": "Home preparedness or quiet staging. No hero poses.",
+      "risk_profile": "low"
+    },
+    "mobilization": {
+      "label": "Mobilization",
+      "notes": "Packing, gearing up, movement to staging area.",
+      "risk_profile": "medium"
+    },
+    "transition": {
+      "label": "Transition",
+      "notes": "Civilian to field moment, candid, understated.",
+      "risk_profile": "medium"
+    },
+    "field_wait": {
+      "label": "Field wait",
+      "notes": "Maintenance, fatigue, waiting in the field.",
+      "risk_profile": "medium"
+    },
+    "artifact_detail": {
+      "label": "Artifact detail",
+      "notes": "Macro gear detail or texture; no faces.",
+      "risk_profile": "low"
+    }
+  }
+}

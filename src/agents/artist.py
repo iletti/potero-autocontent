@@ -4,7 +4,10 @@ import logging
 from pathlib import Path
 from typing import Any, List, Optional, Tuple, Union
 
-from google.genai import types
+try:
+    from google.genai import types
+except ImportError:  # pragma: no cover - optional dependency
+    types = None
 
 from src.state import SlideBrief
 from src.upload_cache import UploadCache
@@ -30,7 +33,11 @@ class Artist:
         else:
             self.upload_cache = None
 
-    def generate_image(self, brief: SlideBrief, anchor_image_path: Optional[str] = None) -> str:
+    def generate_image(
+        self,
+        brief: SlideBrief,
+        anchor_image_path: Optional[str] = None,
+    ) -> str:
         """
         Generates a 4:5 image based on the brief with model fallback.
         """
@@ -41,6 +48,8 @@ class Artist:
         image_parts = self._load_reference_images(
             brief.reference_assets, anchor_image_path
         )
+        aspect_ratio = brief.image_aspect
+        image_size = brief.image_size
 
         for model in models_to_try:
             try:
@@ -63,7 +72,10 @@ class Artist:
                         )
                     image_bytes, file_ext = self._extract_imagen_bytes(response)
                 else:
-                    generation_config = self._build_generation_config()
+                    generation_config = self._build_generation_config(
+                        aspect_ratio=aspect_ratio,
+                        image_size=image_size,
+                    )
                     if generation_config:
                         response = self.client.models.generate_content(
                             model=model,
@@ -95,14 +107,30 @@ class Artist:
         
         raise Exception("All image generation models failed.")
 
-    def _build_generation_config(self) -> Optional[Any]:
-        if not hasattr(types, "GenerateContentConfig"):
+    def generate_candidates(
+        self,
+        brief: SlideBrief,
+        anchor_image_path: Optional[str],
+        count: int,
+    ) -> List[str]:
+        candidates: List[str] = []
+        for _ in range(max(1, count)):
+            candidates.append(self.generate_image(brief, anchor_image_path))
+        return candidates
+
+    def _build_generation_config(
+        self,
+        aspect_ratio: Optional[str] = None,
+        image_size: Optional[str] = None,
+    ) -> Optional[Any]:
+        if types is None or not hasattr(types, "GenerateContentConfig"):
             return None
         if hasattr(types, "ImageConfig"):
             return types.GenerateContentConfig(
                 response_modalities=["IMAGE"],
                 image_config=types.ImageConfig(
-                    aspect_ratio="4:5",
+                    aspect_ratio=aspect_ratio or "4:5",
+                    size=image_size or "2K",
                 ),
             )
         return types.GenerateContentConfig(
@@ -110,7 +138,7 @@ class Artist:
         )
 
     def _build_images_config(self) -> Optional[Any]:
-        if not hasattr(types, "GenerateImagesConfig"):
+        if types is None or not hasattr(types, "GenerateImagesConfig"):
             return None
         return types.GenerateImagesConfig(
             number_of_images=1,

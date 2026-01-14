@@ -13,12 +13,18 @@ class Critic:
         model_name: str = "gemini-1.5-pro",
         warn_threshold: int = 85,
         fail_threshold: int = 70,
+        potero_pass_threshold: float = 7.5,
+        potero_warn_threshold: float = 6.0,
+        allow_warn_pass: bool = False,
         upload_cache: Optional[UploadCache] = None,
         client: Optional[Any] = None,
     ):
         self.model_name = model_name
         self.warn_threshold = warn_threshold
         self.fail_threshold = fail_threshold
+        self.potero_pass_threshold = potero_pass_threshold
+        self.potero_warn_threshold = potero_warn_threshold
+        self.allow_warn_pass = allow_warn_pass
         self.logger = logging.getLogger(__name__)
         self.client = client
         self.upload_cache = upload_cache
@@ -72,7 +78,11 @@ class Critic:
             text = getattr(response, "text", None) or str(response)
             result = self._parse_result(text)
             result = self._apply_fail_fast(result)
-            qa_status = self._grade_result(result.get("pass"), result.get("qa_score"))
+            result = self._apply_thresholds(result)
+            qa_status = self._grade_result(
+                result.get("pass"),
+                result.get("qa_score"),
+            )
             result["qa_status"] = qa_status
             self.logger.info(
                 "critic_result",
@@ -126,12 +136,23 @@ set pass=false and include "hoodie_mismatch" in violations.
 Checklist:
 {questions}
 
-If any checklist item is a violation, set pass=false.
-Return strict JSON only in this format (violations can be empty):
+If any checklist item is a violation, set opsec_pass=false or add to violations.
+Return strict JSON only in this format (arrays can be empty):
 {{
   "pass": true,
+  "opsec_pass": true,
+  "opsec_violations": [],
+  "potero_score": 0-10,
+  "potero_breakdown": {{
+    "lighting": 0-3,
+    "texture": 0-3,
+    "authenticity": 0-3,
+    "narrative": 0-1,
+    "anti_warcore": 0-1,
+    "composition_imperfect": 0-1
+  }},
+  "potero_fail_reasons": [],
   "qa_score": 0-100,
-  "feedback": "short reason",
   "violations": [
     "face",
     "tattoo",
@@ -147,7 +168,12 @@ Return strict JSON only in this format (violations can be empty):
     "camo_on_hoodie",
     "anatomy",
     "lighting"
-  ]
+  ],
+  "feedback": "short reason",
+  "repair_mode": "edit or regen",
+  "repair_targets": [],
+  "repair_instructions": "single paragraph",
+  "confidence": 0-1
 }}
 """.strip()
 
@@ -155,26 +181,42 @@ Return strict JSON only in this format (violations can be empty):
         data = _extract_json(raw_text)
         if not isinstance(data, dict):
             raise CriticError("Critic output must be a JSON object.")
-        passed = data.get("pass")
-        qa_score = data.get("qa_score")
+        passed = _coerce_bool(data.get("pass"))
+        qa_score = _coerce_int(data.get("qa_score"))
         feedback = data.get("feedback", "")
-        violations = data.get("violations", [])
+        violations = _coerce_list(data.get("violations"))
 
-        if isinstance(passed, str):
-            passed = passed.strip().lower() in {"true", "yes", "pass"}
-        if passed is None:
-            raise CriticError("Critic output missing pass field.")
-        if isinstance(qa_score, str):
-            if qa_score.strip().isdigit():
-                qa_score = int(qa_score.strip())
-        if not isinstance(qa_score, int):
-            qa_score = 0
-        qa_score = max(0, min(100, qa_score))
+        opsec_pass = _coerce_bool(data.get("opsec_pass"))
+        opsec_violations = _coerce_list(data.get("opsec_violations"))
+        potero_score = _coerce_float(data.get("potero_score"))
+        potero_breakdown = data.get("potero_breakdown")
+        if not isinstance(potero_breakdown, dict):
+            potero_breakdown = {}
+        potero_fail_reasons = _coerce_list(data.get("potero_fail_reasons"))
+        repair_mode = data.get("repair_mode")
+        repair_targets = _coerce_list(data.get("repair_targets"))
+        repair_instructions = data.get("repair_instructions", "")
+        confidence = _coerce_float(data.get("confidence"))
+        fatal = _coerce_bool(data.get("fatal")) or False
+
+        if qa_score is not None:
+            qa_score = max(0, min(100, qa_score))
+
         return {
-            "pass": bool(passed),
+            "pass": passed,
             "qa_score": qa_score,
             "feedback": str(feedback),
-            "violations": violations if isinstance(violations, list) else [],
+            "violations": violations,
+            "opsec_pass": opsec_pass,
+            "opsec_violations": opsec_violations,
+            "potero_score": potero_score,
+            "potero_breakdown": potero_breakdown,
+            "potero_fail_reasons": potero_fail_reasons,
+            "repair_mode": repair_mode,
+            "repair_targets": repair_targets,
+            "repair_instructions": str(repair_instructions),
+            "confidence": confidence,
+            "fatal": fatal,
         }
 
     def _grade_result(self, passed: Any, qa_score: Any) -> str:
@@ -190,6 +232,8 @@ Return strict JSON only in this format (violations can be empty):
 
     def _apply_fail_fast(self, result: Dict[str, Any]) -> Dict[str, Any]:
         violations = result.get("violations") or []
+        opsec_violations = result.get("opsec_violations") or []
+        combined = list(violations) + list(opsec_violations)
         hard_fail = {
             "face",
             "tattoo",
@@ -204,11 +248,45 @@ Return strict JSON only in this format (violations can be empty):
             "camo_mismatch",
             "camo_on_hoodie",
         }
-        if any(str(v).lower() in hard_fail for v in violations):
+        if any(str(v).lower() in hard_fail for v in combined):
             result["pass"] = False
-            result["qa_score"] = min(result.get("qa_score", 0), 10)
+            if result.get("qa_score") is not None:
+                result["qa_score"] = min(result.get("qa_score", 0), 10)
+            result["opsec_pass"] = False
             if not result.get("feedback"):
                 result["feedback"] = "Hard fail: OPSEC violation."
+        return result
+
+    def _apply_thresholds(self, result: Dict[str, Any]) -> Dict[str, Any]:
+        opsec_pass = result.get("opsec_pass")
+        opsec_violations = result.get("opsec_violations") or []
+        if opsec_pass is None:
+            opsec_pass = len(opsec_violations) == 0
+        if opsec_violations:
+            opsec_pass = False
+
+        potero_score = result.get("potero_score")
+        qa_score = result.get("qa_score")
+        if potero_score is None and isinstance(qa_score, int):
+            potero_score = qa_score / 10.0
+        if potero_score is not None and qa_score is None:
+            qa_score = int(max(0.0, min(10.0, potero_score)) * 10)
+
+        passed = result.get("pass")
+        if opsec_pass is False:
+            passed = False
+        elif potero_score is not None:
+            if potero_score >= self.potero_pass_threshold:
+                passed = True
+            elif potero_score >= self.potero_warn_threshold:
+                passed = self.allow_warn_pass
+            else:
+                passed = False
+
+        result["opsec_pass"] = opsec_pass
+        result["potero_score"] = potero_score
+        result["qa_score"] = qa_score
+        result["pass"] = bool(passed) if passed is not None else False
         return result
 
     def _load_reference_assets(
@@ -251,3 +329,38 @@ def _extract_json(raw_text: str) -> Any:
 def _is_model_not_found(error_text: str) -> bool:
     lowered = error_text.lower()
     return "models/" in lowered and "not found" in lowered
+
+
+def _coerce_bool(value: Any) -> Optional[bool]:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"true", "yes", "pass"}
+    return None
+
+
+def _coerce_int(value: Any) -> Optional[int]:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.strip().isdigit():
+        return int(value.strip())
+    return None
+
+
+def _coerce_float(value: Any) -> Optional[float]:
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value.strip())
+        except ValueError:
+            return None
+    return None
+
+
+def _coerce_list(value: Any) -> List[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    return []

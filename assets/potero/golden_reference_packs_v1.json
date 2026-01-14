@@ -1,0 +1,25 @@
+{
+  "version": "v1",
+  "env_presets": {
+    "taiga_winter_kaamos": [
+      "ENV_TAIGA_WINTER_KAAMOS",
+      "TEXTURE_M05_SNOW"
+    ],
+    "taiga_summer": [
+      "ENV_TAIGA_SUMMER_NIGHT",
+      "TEXTURE_M05_WOODLAND"
+    ],
+    "cqb_osb": [
+      "ENV_CQB_OSB",
+      "TEXTURE_M05_WOODLAND"
+    ],
+    "industrial_hall": [
+      "ENV_INDUSTRIAL_HALL",
+      "TEXTURE_M05_WOODLAND"
+    ],
+    "shelter_brutalist": [
+      "ENV_SHELTER",
+      "TEXTURE_M05_WOODLAND"
+    ]
+  }
+}

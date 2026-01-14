@@ -7,11 +7,22 @@ from src.state import CarouselState, GlobalConstraints, SlideState
 
 class TemplatePlanner(Planner):
     def __init__(self, planner_mode: str = "template"):
+        from pathlib import Path
         self.model_name = "stub"
         self.model = None
         self.registry = None
         self.logger = logging.getLogger(__name__)
         self.planner_mode = planner_mode
+        self.potero_shader_version = "v1_1"
+        self.potero_image_aspect = "4:5"
+        self.potero_image_size = "2K"
+        self.potero_allow_warn_pass = False
+        self.potero_pass_threshold = 7.5
+        self.potero_warn_threshold = 6.0
+        self.potero_enable_edit_mode = True
+        self.potero_max_refs_per_call = 10
+        self.potero_max_refs_hard = 14
+        self.potero_assets_dir = Path(__file__).resolve().parents[1] / "assets"
 
 
 class TestPlannerTemplates(unittest.TestCase):

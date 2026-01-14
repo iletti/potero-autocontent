@@ -35,22 +35,21 @@ The agents operate within a LangGraph state machine.
 ```mermaid
 graph TD
     Start[User Request] --> Planner
-    Planner -->|Briefs & Asset Load| Architect
-    Architect -->|Slide Logic & Refs| Artist
+    Planner -->|Briefs + Prompt Compile| Artist
     Artist -->|Generates Image| Critic
-    
-    Critic -->|VQA Analysis| Decision{Pass or Fail?}
-    
-    Decision -- Pass --> Delivery[Add to Carousel]
-    Delivery -->|Next Slide?| Architect
-    
-    Decision -- Fail --> CheckRetry{Retry < 3?}
-    CheckRetry -- Yes --> Editor
-    Editor -->|Refined Prompt| Artist
-    
-    CheckRetry -- No --> Fallback
-    Fallback -->|Safe Shot/Best Effort| Delivery
+    Critic -->|VQA + Potero Score| Decision{Pass or Fail?}
 
+    Decision -- Pass --> Delivery[Add to Carousel]
+    Delivery -->|Next Slide?| Artist
+
+    Decision -- Fail + edit --> ArtistEdit
+    ArtistEdit --> Critic
+
+    Decision -- Fail + regen --> Editor
+    Editor --> Artist
+
+    Decision -- Fail + retries exhausted --> Fallback
+    Fallback --> Artist
 ```
 
 ---
@@ -64,7 +63,9 @@ graph TD
 * **Responsibilities:**
 * **Theme Parsing:** Converts `theme_id` (e.g., "winter_ambush") into 5 distinct `SlideBriefs`.
 * **Asset Locking:** Selects one `design_id` (Hoodie) and locks it for the entire carousel.
-* **Reference Loading:** Fetches the "Gold Standard" asset packs (M05 swatches, specific hoodie textures).
+* **Prompt Compilation:** Injects locked Potero shader and negative blocks and compiles deterministic prompts.
+* **Reference Roles:** Infers role requirements (ENV/M05/kit) and attaches role-based packs via registry + golden packs.
+* **Metadata:** Populates intent, env preset, lighting signature, risk profile, kit anchors, and image size/aspect.
 
 
 * **Output:** `CarouselState` object containing 5 initialized briefs.
@@ -81,6 +82,8 @@ graph TD
 * **Capabilities:**
 * **Reasoning-Guided Synthesis:** Plans composition to ensure negative space exists for overlay text (without rendering the text itself).
 * **Anchor Injection:** For Slides 2–5, ingests the image of Slide 1 to match lighting and color grading.
+* **Candidate Pool:** Slide 1 can generate multiple candidates and select the best by critic score.
+* **Edit Path:** Localized fixes use ArtistEdit rather than full regeneration.
 
 
 
@@ -89,6 +92,7 @@ graph TD
 * **Role:** The "Eye." Validates the output against strict Potero constraints.
 * **Model:** `gemini-1.5-pro` (Vision Mode)
 * **Methodology:** Visual Question Answering (VQA).
+* **Crop Critic:** Optional crop checks (budget gated) flag local defects for edit mode.
 * **Checklist (The "Kill List"):**
 1. **OPSEC Breach:** "Is a face or identifiable tattoo visible?" (If Yes -> **HARD FAIL**)
 2. **Brand Violation:** "Is there readable text, a logo, or a flag?" (If Yes -> **HARD FAIL**)
@@ -98,16 +102,17 @@ graph TD
 5. **Aesthetics:** "Is the lighting flat or glossy? We need harsh shadows and flash photography. If it looks like Midjourney artstation style, reject."
 
 
-* **Output:** `QAResult` (Pass/Fail, Reason, Severity).
+* **Output:** `QAResult` with OPSEC pass, Potero score breakdown, repair targets, and confidence.
 
 ### Agent D: The Editor (Refinement & Recovery)
 
-* **Role:** The "Fixer." Activated only upon Critic rejection.
+* **Role:** The "Fixer." Activated only upon Critic rejection or Potero drift.
 * **Model:** `gemini-2.5-flash` (Logic/Speed optimized)
 * **Workflow:**
 1. Analyzes the Critic's failure reason (e.g., "Lighting is too flat").
 2. Modifies the prompt *specifically* to address the flaw without changing the composition (e.g., appends "harsh camera flash, high contrast, underexposed").
 3. Requests a seed change if the anatomy is broken.
+4. Applies style-tighten deltas when Potero score is below target but OPSEC passes.
 
 
 
@@ -123,14 +128,26 @@ graph TD
   "global_constraints": {
     "design_id_locked": "hoodie_013_ranger_green",
     "environment": "pine_forest_fog",
-    "aspect_ratio": "4:5"
+    "aspect_ratio": "4:5",
+    "potero_shader_version": "v1_1",
+    "image_aspect": "4:5",
+    "image_size": "2K",
+    "allow_warn_pass": false,
+    "potero_pass_threshold": 7.5,
+    "potero_warn_threshold": 6.0,
+    "enable_edit_mode": true,
+    "max_refs_per_call": 10,
+    "max_refs_hard": 14,
+    "anchor_candidates": 3
   },
   "slides": [
     {
       "index": 1,
       "status": "completed",
       "image_path": "out/slide1.png",
-      "qa_score": 98
+      "qa_score": 98,
+      "opsec_pass": true,
+      "potero_score": 8.4
     },
     {
       "index": 2,
@@ -155,7 +172,16 @@ graph TD
     "path/to/hoodie_013_macro.png",
     "path/to/slide_1_anchor.png" 
   ],
-  "composition_guidance": "Leave top-left quadrant empty (negative space) for post-production typography."
+  "composition_guidance": "Leave top-left quadrant empty (negative space) for post-production typography.",
+  "intent": "artifact_detail",
+  "continuum_cue": "coffee ritual",
+  "kit_anchors": ["M05_CAMO"],
+  "env_preset": "taiga_winter_kaamos",
+  "lighting_signature": "lofi_flash_on_axis_kaamos",
+  "risk_profile": "low",
+  "reference_roles_required": ["ENV_TAIGA_WINTER_KAAMOS", "TEXTURE_M05_SNOW"],
+  "image_aspect": "4:5",
+  "image_size": "2K"
 }
 
 ```
@@ -174,51 +200,44 @@ If `gemini-3-pro-image-preview` hits a 503 or Rate Limit:
 2. **Secondary:** `imagen-3.0-generate-001` (High throughput, reliable, strictly guided).
 3. **Tertiary:** `gemini-1.5-flash` (Lowest fidelity—use only for "far away" silhouettes).
 
-### Content Fallback (The "Safe Shot")
+### Content Fallback (Potero-safe templates)
 
-If **Agent D (Editor)** fails to fix an image after 3 attempts:
+If retries are exhausted:
 
-* The system abandons the complex prompt (e.g., "Soldier adjusting comtacs").
-* It triggers a **Fallback Brief**: A simple, low-risk "texture/mood" shot (e.g., "Discarded gear on forest floor, foggy, static").
-* This ensures the carousel always completes with 5 valid images.
+* The system switches to a Potero-safe fallback template (edge-of-human, gear layout, or environment-only).
+* Fallbacks still include Potero shader/negative blocks and avoid high-risk content.
 
 ---
 
 ## 6. Prompt Invariants (Immutable Blocks)
 
-**Global Style Block (Prepended to ALL prompts):**
+**Locked Potero Shader** (loaded from `assets/potero/potero_shader_v1_1.txt`):
+Prepended to every positive prompt by the prompt compiler.
 
-> "Photorealistic raw photo, Finnish Reservist aesthetic, M05 camouflage on gear only, grainy, high ISO, crushed blacks, desaturated greens/blues. Shot on 35mm film, harsh on-camera flash. Documentary style, not cinematic. POV: First-person or candid."
-
-**Negative Constraints (Appended to ALL prompts):**
-
-> "bad anatomy, extra fingers, watermark, signature, username, unapproved text, unapproved logo, flag, patch, name tape, face, eyes, skin, bright colors, sunny, studio lighting, bokeh, 3d render, cgi."
-> "Only allowed text/logo is the approved 'POTERO STANDARD' embroidery that matches hoodie references exactly."
+**Locked Potero Negative** (loaded from `assets/potero/potero_negative_v1_1.txt`):
+Prepended to every negative prompt by the prompt compiler.
 
 ---
 
-## 7. Implementation Roadmap
+## 7. Implementation Status
 
-1. **Day 1 (Assets):** Populate Vector DB/Ref Folder with "Gold" assets (M05 swatches, clean hoodie product shots).
-2. **Day 2 (Logic):** Implement the `Planner` and `Architect` to handle the `CarouselState`.
-3. **Day 3 (The Swarm):** Connect `Artist` -> `Critic` -> `Editor` loop. Tune the `Critic`'s rejection threshold to be aggressive on faces/text.
-4. **Day 4 (Integration):** Implement the "Anchor Image" injection (passing Slide 1 output as input to Slide 2).
-5. **Day 5 (Stress Test):** Run adversarial tests (e.g., ask for "crowd scenes") to ensure the Critic catches OPSEC violations.
+Implemented in this repo:
+1. Versioned Potero shader/negative assets and prompt compiler.
+2. Role-based reference selection with golden packs and quality scoring.
+3. Preflight drift checks and kit consistency compiler.
+4. Critic v2 schema (OPSEC + Potero scoring + repair hints).
+5. ArtistEdit path and edit-mode routing.
+6. Potero-safe fallbacks and Slide 1 candidate pool.
+7. Budget enforcement for candidate scoring and crop checks.
 
 ---
 
-## 8. Production Readiness Review (Critical)
+## 8. Production Readiness Review (Current Gaps)
 
-The current repo is a strong prototype but not production grade yet. Key gaps:
-
-1. **Execution is stubbed:** The agents do not call real model APIs; they simulate results. Production requires actual API calls and error handling.
-2. **State flow is incomplete:** Slide progression, retry limits, and fallback behavior need consistent state updates and termination rules.
-3. **No dependency pinning:** There is no `pyproject.toml` or `requirements.txt`, which blocks reproducible builds and deployments.
-4. **No test suite or CI:** There are no unit or integration tests validating planner output, critic rules, or the graph loop.
-5. **No config contract:** Env vars and runtime config are not documented (no `.env.example`).
-6. **No asset validation:** Reference assets are not loaded or verified; missing assets are not detected early.
-7. **No observability:** Only print statements exist; no structured logging, metrics, or run artifacts.
-8. **No persistence:** Outputs are not tracked in a database or object store, and there is no run registry.
+1. **Crop critic placeholder:** Crop critic currently reuses full-image VQA rather than true crop/bbox checks.
+2. **Reference quality scoring depth:** Quality scoring uses file size and optional resolution; no watermark/sharpness scoring yet.
+3. **Optional deps in CI:** Tests that require `langgraph` and `google-genai` are skipped if deps are missing.
+4. **Config contract:** No `.env.example` is present; env var list is documented but not templated.
 
 ---
 
@@ -236,7 +255,16 @@ assets/references/
     hoodie_013_ranger_green_macro.png
 ```
 
-Update `assets/references/manifest.json` to register assets and `src/agents/planner.py` (or a central config module) to inject these exact paths into each `SlideBrief.reference_assets`.
+Update `assets/references/manifest.json` to register assets with `path`, `role`, and optional `tags`. The planner infers role requirements and the reference selector chooses assets by role, optionally injecting golden packs.
+
+Example manifest entry:
+```
+{
+  "path": "m05/m05_swatch.jpg",
+  "role": "TEXTURE_M05_WOODLAND",
+  "tags": ["m05", "woodland"]
+}
+```
 
 When `POTERO_REQUIRE_ASSETS=true`, the manifest must include:
 
@@ -248,6 +276,16 @@ Required env vars (names only):
 - `GOOGLE_API_KEY`
 - `POTERO_THEME_ID`
 - `POTERO_DESIGN_ID`
+- `POTERO_SHADER_VERSION`
+- `POTERO_IMAGE_ASPECT`
+- `POTERO_IMAGE_SIZE`
+- `POTERO_ALLOW_WARN_PASS`
+- `POTERO_POTERO_PASS_THRESHOLD`
+- `POTERO_POTERO_WARN_THRESHOLD`
+- `POTERO_ENABLE_EDIT_MODE`
+- `POTERO_MAX_REFS_PER_CALL`
+- `POTERO_MAX_REFS_HARD`
+- `POTERO_ANCHOR_CANDIDATES`
 - `POTERO_PLANNER_MODE` (`template` | `template+llm`)
 - `POTERO_CRITIC_MODEL` (default `models/gemini-2.5-flash`)
 - `POTERO_CRITIC_WARN_THRESHOLD` (default `85`)
@@ -255,6 +293,8 @@ Required env vars (names only):
 - `POTERO_PLANNER_MODEL` (default `models/gemini-2.5-flash`)
 - `POTERO_ARTIST_MODEL` (default `models/gemini-2.5-flash-image`)
 - `POTERO_ARTIST_FALLBACKS` (comma-separated models, defaults to image preview)
+- `POTERO_EDITOR_MODEL`
+- `POTERO_EDITOR_MODE`
 - `POTERO_MAX_TOTAL_CALLS`
 - `POTERO_MAX_PLANNER_CALLS`
 - `POTERO_MAX_ARTIST_CALLS`
@@ -263,9 +303,9 @@ Required env vars (names only):
 
 Budget limits are enforced per run; exceeding them stops generation.
 
-Reference uploads are cached per run to avoid re-uploading the same files.
+Reference uploads are cached per run using file hash + role to avoid re-uploading the same files.
 
-Critic outputs now include `violations` for hard-fail conditions (face/text/logo/etc).
+Critic outputs now include OPSEC pass, Potero score breakdown, violations, and repair targets.
 
 You can also pass runtime inputs via CLI:
 
