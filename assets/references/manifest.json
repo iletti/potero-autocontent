@@ -271,6 +271,43 @@
       "tags": [
         "maintenance"
       ]
+    },
+    {
+      "path": "GEAR_BATTLE_BELT_FRONT/battle_belt_front_01.png",
+      "role": "GEAR_BATTLE_BELT_FRONT",
+      "tags": [
+        "belt",
+        "front",
+        "battlebelt"
+      ]
+    },
+    {
+      "path": "GEAR_BATTLE_BELT_BACK/battle_belt_back_01.png",
+      "role": "GEAR_BATTLE_BELT_BACK",
+      "tags": [
+        "belt",
+        "back",
+        "ifak",
+        "cat"
+      ]
+    },
+    {
+      "path": "GEAR_BATTLE_BELT_SIDE_LEFT/battle_belt_side_left_01.png",
+      "role": "GEAR_BATTLE_BELT_SIDE_LEFT",
+      "tags": [
+        "belt",
+        "side",
+        "dump"
+      ]
+    },
+    {
+      "path": "GEAR_IFAK_POUCH_DETAIL/ifak_cat_detail_01.png",
+      "role": "GEAR_IFAK_POUCH_DETAIL",
+      "tags": [
+        "ifak",
+        "cat",
+        "detail"
+      ]
     }
   ],
   "m05_swatches": [

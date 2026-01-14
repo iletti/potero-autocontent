@@ -96,6 +96,10 @@ assets/references/
   GEAR_PLATE_CARRIER_LAYOUT/
   GEAR_POUCHES_DETAIL/
   GEAR_BELT_DUMP_POUCH/
+  GEAR_BATTLE_BELT_FRONT/
+  GEAR_BATTLE_BELT_BACK/
+  GEAR_BATTLE_BELT_SIDE_LEFT/
+  GEAR_IFAK_POUCH_DETAIL/
 
   GEAR_BACKPACK_JAAKARI_34/
   GEAR_PALS_CLOSE/
@@ -214,7 +218,7 @@ Important: the system needs visual references for these, not just the names.
 - M05 texture pack (2-4 images)
 - If weapon: RK95 muzzle close + silhouette
 - If Savotta: PALS close + straps connect
-- If plate carrier/belt: layout + dump pouch refs
+- If plate carrier/belt: layout + dump pouch refs + realistic battle belt (front/back/IFAK)
 
 If yes, you will get consistent Potero output.
 
