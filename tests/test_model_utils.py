@@ -1,6 +1,6 @@
 import unittest
 
-from src.model_utils import model_dump, update_model
+from src.model_utils import model_dump, normalize_model_name, update_model
 
 
 class DummyModel:
@@ -41,3 +41,15 @@ class TestModelUtils(unittest.TestCase):
         model = LegacyModel(value="old")
         updated = update_model(model, {"value": "new"})
         self.assertEqual(model_dump(updated)["value"], "new")
+
+    def test_normalize_model_name_with_alias(self):
+        self.assertEqual(
+            normalize_model_name("gemini-1.5-flash"),
+            "models/gemini-3-flash-preview",
+        )
+
+    def test_normalize_model_name_prefix(self):
+        self.assertEqual(
+            normalize_model_name("models/gemini-2.5-flash"),
+            "models/gemini-2.5-flash",
+        )

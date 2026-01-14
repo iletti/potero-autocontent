@@ -48,7 +48,7 @@ def build_fallback_brief(
                 "readable text, labels, logos, faces, eyes, skin, weapon, "
                 "patch, name tape, bright colors, studio lighting"
             ),
-            "composition_guidance": "Leave top-left quadrant empty for typography.",
+            "composition_guidance": "Leave the top-left quadrant empty.",
         },
         {
             "shot_type": "fallback_gear_layout",
@@ -61,7 +61,7 @@ def build_fallback_brief(
                 "readable text, labels, logos, faces, eyes, skin, weapon, "
                 "patch, name tape, bright colors, studio lighting"
             ),
-            "composition_guidance": "Leave upper-right empty for overlay text.",
+            "composition_guidance": "Leave the upper-right quadrant empty.",
         },
         {
             "shot_type": "fallback_environment_only",
@@ -73,7 +73,7 @@ def build_fallback_brief(
                 "readable text, labels, logos, faces, eyes, skin, weapon, "
                 "patch, name tape, bright colors, studio lighting"
             ),
-            "composition_guidance": "Leave top band empty for typography.",
+            "composition_guidance": "Leave the top band empty.",
         },
     ]
     template = fallback_templates[(index - 1) % len(fallback_templates)]
@@ -197,6 +197,8 @@ def create_graph(
                 brief,
                 {"reference_assets": reference_assets},
             )
+            state["briefs"][current_idx] = brief
+            persist_state(carousel, state["briefs"])
             logger.info(
                 "reference_selection",
                 extra={

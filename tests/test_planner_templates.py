@@ -55,3 +55,32 @@ class TestPlannerTemplates(unittest.TestCase):
         briefs = planner.generate_briefs(state)
         self.assertEqual(len(briefs), 5)
         self.assertEqual([b.shot_type for b in briefs], TEMPLATE_SHOTS)
+
+    def test_front_shot_embroidery_is_left_chest_only(self):
+        planner = TemplatePlanner()
+        state = self._build_state("winter_ambush")
+        briefs = planner.generate_briefs(state)
+        front_brief = briefs[1]
+        prompt = front_brief.positive_prompt.lower()
+        self.assertIn("left chest", prompt)
+        self.assertIn("never on the back", prompt)
+
+    def test_back_shots_forbid_text_on_back(self):
+        planner = TemplatePlanner()
+        state = self._build_state("winter_ambush")
+        briefs = planner.generate_briefs(state)
+        for idx in (0, 2, 3, 4):
+            prompt = briefs[idx].positive_prompt.lower()
+            self.assertIn("no text or embroidery on the back", prompt)
+
+    def test_composition_guidance_has_no_text_mentions(self):
+        planner = TemplatePlanner()
+        state = self._build_state("winter_ambush")
+        briefs = planner.generate_briefs(state)
+        for brief in briefs:
+            if not brief.composition_guidance:
+                continue
+            guidance = brief.composition_guidance.lower()
+            self.assertNotIn("text", guidance)
+            self.assertNotIn("typography", guidance)
+            self.assertNotIn("logo", guidance)

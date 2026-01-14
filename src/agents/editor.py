@@ -10,7 +10,7 @@ from src.upload_cache import UploadCache
 class Editor:
     def __init__(
         self,
-        model_name: str = "gemini-3-pro-preview",
+        model_name: str = "gemini-3-flash-preview",
         mode: str = "rules",
         client: Optional[Any] = None,
         upload_cache: Optional[UploadCache] = None,
@@ -106,11 +106,7 @@ class Editor:
     def _build_constraints(self, feedback: str) -> str:
         feedback_lower = feedback.lower()
         constraints = [
-            (
-                "No text or logos anywhere except the approved 'POTERO STANDARD' "
-                "embroidery on the hoodie chest; if it cannot match the references "
-                "exactly, omit all text/logos."
-            )
+            "No text or logos anywhere unless explicitly required by the brief."
         ]
         if "backpack" in feedback_lower or "gear" in feedback_lower or "patch" in feedback_lower:
             constraints.append("Remove all patches and text from gear and backpack.")

@@ -25,6 +25,10 @@ def select_reference_assets(
     used = set()
 
     role_assets = registry.get_assets_by_role(roles)
+    role_assets = {
+        role: _filter_supported_assets(paths)
+        for role, paths in role_assets.items()
+    }
     scored_assets, scores = _score_assets(role_assets)
 
     env_roles = [r for r in roles if r.startswith("ENV_")]
@@ -99,3 +103,13 @@ def _score_assets(
         )
         scored[role] = ranked
     return scored, scores
+
+
+def _filter_supported_assets(paths: List[str]) -> List[str]:
+    supported = {".jpg", ".jpeg", ".png", ".webp"}
+    filtered: List[str] = []
+    for path in paths:
+        ext = Path(path).suffix.lower()
+        if ext in supported:
+            filtered.append(path)
+    return filtered

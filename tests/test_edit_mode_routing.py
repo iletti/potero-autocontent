@@ -28,6 +28,18 @@ class DummyArtist:
 
 class DummyCritic:
     def validate_image(self, image_path, reference_assets=None):
+        if image_path == "edited.png":
+            return {
+                "pass": True,
+                "qa_score": 90,
+                "qa_status": "pass",
+                "feedback": "ok",
+                "opsec_pass": True,
+                "potero_score": 8.0,
+                "repair_mode": None,
+                "repair_instructions": "",
+                "repair_targets": [],
+            }
         return {
             "pass": False,
             "qa_score": 0,

@@ -23,12 +23,10 @@ GLOBAL_STYLE_BLOCK = (
 )
 DESIGN_INVARIANTS = (
     "Hoodie must exactly match the provided reference images in color, fabric, "
-    "embroidery, print, size, and placement. Never apply M05 or any other camo "
+    "print, size, and placement. Never apply M05 or any other camo "
     "to the hoodie fabric; M05 appears only on gear or background elements. "
     "Match the Finnish M05 swatch reference exactly for any camo on gear or trousers. "
-    "Only allowed text/logo is the approved 'POTERO STANDARD' embroidery copied "
-    "exactly from the reference images; no other text or graphics anywhere. "
-    "If you cannot match the embroidery exactly, omit all text/logos entirely."
+    "No text or logos anywhere unless explicitly required by the brief."
     "Prioritize showing the back of the hoodie in most shots; front view should "
     "be a minority of the carousel (about 20% front, 80% back). For back-view "
     "shots, the front embroidery does not need to be visible; the back design "
@@ -43,8 +41,7 @@ NEGATIVE_CONSTRAINTS = (
     "unapproved logos, logos on gear, patches on gear, chest rig logos, "
     "flag, patch, name tape, face, eyes, "
     "skin, bright colors, sunny, studio lighting, bokeh, 3d render, cgi. "
-    "Only allowed text/logo is the approved 'POTERO STANDARD' embroidery that "
-    "matches hoodie reference images."
+    "No text or logos unless explicitly required by the brief."
 )
 
 
@@ -113,17 +110,18 @@ THEME_TEMPLATES = {
                 "by hood and angle, harsh flash, M05 gear visible, back design "
                 "matches reference and may be partially occluded by gear"
             ),
-            "composition_guidance": "Leave upper-left quadrant empty for typography.",
+            "composition_guidance": "Leave the upper-left quadrant empty.",
         },
         {
             "shot_type": "close_up_texture",
             "positive_prompt": (
-                "Front chest detail of the reference hoodie with the "
-                "'POTERO STANDARD' embroidery clearly visible and matching the "
-                "reference in size, color, and placement; high ISO grain, harsh "
+                "Front chest detail of the reference hoodie with the small "
+                "'POTERO STANDARD' embroidery visible on the left chest only "
+                "and matching the reference in size, color, and placement; high "
+                "ISO grain, harsh "
                 "flash; M05 gear may appear in background only"
             ),
-            "composition_guidance": "Keep top band clean for overlay text.",
+            "composition_guidance": "Keep the top band clean.",
         },
         {
             "shot_type": "tactical_action",
@@ -132,7 +130,7 @@ THEME_TEMPLATES = {
                 "face not visible, low angle, back of hoodie visible, back design "
                 "matches reference"
             ),
-            "composition_guidance": "Leave right third negative space.",
+            "composition_guidance": "Leave the right third as negative space.",
         },
         {
             "shot_type": "gear_detail",
@@ -141,7 +139,7 @@ THEME_TEMPLATES = {
                 "natural, no face visible, harsh flash, back of hoodie visible, "
                 "back design matches reference"
             ),
-            "composition_guidance": "Leave top-left empty for typography.",
+            "composition_guidance": "Leave the top-left quadrant empty.",
         },
         {
             "shot_type": "final_brand_shot",
@@ -150,7 +148,7 @@ THEME_TEMPLATES = {
                 "back side up and fully visible, solid color fabric, "
                 "M05 gear nearby, desaturated greens, back design matches reference"
             ),
-            "composition_guidance": "Leave upper-right empty for overlay text.",
+            "composition_guidance": "Leave the upper-right quadrant empty.",
         },
     ],
 }
@@ -158,7 +156,7 @@ THEME_TEMPLATES = {
 class Planner:
     def __init__(
         self,
-        model_name: str = "gemini-1.5-pro",
+        model_name: str = "gemini-3-flash-preview",
         registry: Optional[AssetRegistry] = None,
         planner_mode: str = "template",
         potero_shader_version: str = "v1_1",
@@ -296,15 +294,16 @@ class Planner:
                     "the reference hoodie, face fully obscured, harsh flash, "
                     "back design matches reference"
                 ),
-                "composition_guidance": "Leave top-left empty for typography.",
+                "composition_guidance": "Leave the top-left quadrant empty.",
             },
             {
                 "shot_type": TEMPLATE_SHOTS[1],
                 "positive_prompt": (
-                    f"Front chest detail in {theme}, reference hoodie embroidery "
-                    "clearly visible and matching size/placement; high ISO"
+                    f"Front chest detail in {theme}, reference hoodie "
+                    "embroidery small on the left chest only and matching "
+                    "size/placement; high ISO"
                 ),
-                "composition_guidance": "Keep top band clean for overlay text.",
+                "composition_guidance": "Keep the top band clean.",
             },
             {
                 "shot_type": TEMPLATE_SHOTS[2],
@@ -312,7 +311,7 @@ class Planner:
                     f"Back view tactical movement in {theme}, candid angle, "
                     "no face visible, back of hoodie visible, back design matches reference"
                 ),
-                "composition_guidance": "Leave right third negative space.",
+                "composition_guidance": "Leave the right third as negative space.",
             },
             {
                 "shot_type": TEMPLATE_SHOTS[3],
@@ -320,7 +319,7 @@ class Planner:
                     f"Back view gear detail in {theme}, hands on equipment, "
                     "harsh flash, back of hoodie visible, back design matches reference"
                 ),
-                "composition_guidance": "Leave top-left empty for typography.",
+                "composition_guidance": "Leave the top-left quadrant empty.",
             },
             {
                 "shot_type": TEMPLATE_SHOTS[4],
@@ -328,7 +327,7 @@ class Planner:
                     f"Final product-focused shot in {theme}, reference hoodie "
                     "on ground with back side up, back design matches reference"
                 ),
-                "composition_guidance": "Leave upper-right empty for overlay text.",
+                "composition_guidance": "Leave the upper-right quadrant empty.",
             },
         ]
 
@@ -353,9 +352,9 @@ class Planner:
             brief.positive_prompt
         )
         required_roles = brief.reference_roles_required or self._infer_roles(
-            env_preset, kit_anchors, brief.positive_prompt
+            env_preset, kit_anchors, brief
         )
-        return update_model(
+        brief = update_model(
             brief,
             {
                 "intent": intent,
@@ -369,6 +368,7 @@ class Planner:
                 "image_size": state.global_constraints.image_size,
             },
         )
+        return self._apply_front_back_rules(brief)
 
     def _infer_env_preset(self, theme: str) -> str:
         lowered = (theme or "").lower()
@@ -408,9 +408,10 @@ class Planner:
         self,
         env_preset: str,
         kit_anchors: List[str],
-        prompt: str,
+        brief: SlideBrief,
     ) -> List[str]:
         roles: List[str] = []
+        prompt = brief.positive_prompt or ""
         env_role = ENV_ROLE_BY_PRESET.get(env_preset)
         if env_role:
             roles.append(env_role)
@@ -438,7 +439,55 @@ class Planner:
             roles.append("GEAR_HEADSET_COMTAC")
         if "PGD_HIGH_CUT" in kit_anchors:
             roles.append("GEAR_HELMET_HIGH_CUT")
+        roles.extend(self._infer_design_roles(brief))
         return _unique_list(roles)
+
+    def _infer_design_roles(self, brief: SlideBrief) -> List[str]:
+        if self._is_front_shot(brief):
+            return ["DESIGN_FRONT"]
+        if self._is_back_shot(brief):
+            return ["DESIGN_BACK"]
+        return ["DESIGN_SIDE"]
+
+    def _apply_front_back_rules(self, brief: SlideBrief) -> SlideBrief:
+        prompt = brief.positive_prompt or ""
+        if self._is_front_shot(brief):
+            prompt = _append_if_missing(
+                prompt,
+                "Small 'POTERO STANDARD' embroidery on the left chest only; never on the back.",
+            )
+        elif self._is_back_shot(brief):
+            prompt = _append_if_missing(
+                prompt,
+                "Back view only; no text or embroidery on the back of the hoodie.",
+            )
+        return update_model(brief, {"positive_prompt": prompt})
+
+    def _is_front_shot(self, brief: SlideBrief) -> bool:
+        text = _normalize_text(f"{brief.shot_type} {brief.positive_prompt}")
+        markers = [
+            "front view",
+            "front-facing",
+            "front facing",
+            "front chest",
+            "chest detail",
+            "left chest",
+            "front of the hoodie",
+        ]
+        return any(marker in text for marker in markers)
+
+    def _is_back_shot(self, brief: SlideBrief) -> bool:
+        text = _normalize_text(f"{brief.shot_type} {brief.positive_prompt}")
+        markers = [
+            "back view",
+            "back-facing",
+            "back facing",
+            "back side",
+            "back design",
+            "back of the hoodie",
+            "back side up",
+        ]
+        return any(marker in text for marker in markers)
     def _refine_briefs_with_llm(
         self,
         briefs: List[SlideBrief],
@@ -614,6 +663,21 @@ def _unique_list(values: List[str]) -> List[str]:
         seen.add(value)
         deduped.append(value)
     return deduped
+
+
+def _append_if_missing(text: str, snippet: str) -> str:
+    if not snippet:
+        return text
+    normalized = _normalize_text(text)
+    if _normalize_text(snippet) in normalized:
+        return text
+    if not text:
+        return snippet
+    return f"{text}\n{snippet}".strip()
+
+
+def _normalize_text(text: str) -> str:
+    return " ".join((text or "").lower().split())
 
 
 def _extract_json(raw_text: str) -> Any:

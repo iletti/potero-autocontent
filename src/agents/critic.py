@@ -10,7 +10,7 @@ class CriticError(Exception):
 class Critic:
     def __init__(
         self,
-        model_name: str = "gemini-1.5-pro",
+        model_name: str = "gemini-3-flash-preview",
         warn_threshold: int = 85,
         fail_threshold: int = 70,
         potero_pass_threshold: float = 7.5,

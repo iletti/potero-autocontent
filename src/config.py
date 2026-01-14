@@ -102,7 +102,7 @@ def load_config() -> AppConfig:
         os.getenv("POTERO_ANCHOR_CANDIDATES", "3")
     )
     planner_mode = os.getenv("POTERO_PLANNER_MODE", "template").strip().lower()
-    critic_model = os.getenv("POTERO_CRITIC_MODEL", "gemini-1.5-flash")
+    critic_model = os.getenv("POTERO_CRITIC_MODEL", "gemini-3-flash-preview")
     critic_warn_threshold = int(os.getenv("POTERO_CRITIC_WARN_THRESHOLD", "85"))
     critic_fail_threshold = int(os.getenv("POTERO_CRITIC_FAIL_THRESHOLD", "70"))
     max_total_calls = int(os.getenv("POTERO_MAX_TOTAL_CALLS", "50"))
@@ -111,13 +111,13 @@ def load_config() -> AppConfig:
     max_critic_calls = int(os.getenv("POTERO_MAX_CRITIC_CALLS", "15"))
     max_editor_calls = int(os.getenv("POTERO_MAX_EDITOR_CALLS", "5"))
     max_retries_per_slide = int(os.getenv("POTERO_MAX_RETRIES_PER_SLIDE", "3"))
-    planner_model = os.getenv("POTERO_PLANNER_MODEL", "gemini-3-pro-preview")
+    planner_model = os.getenv("POTERO_PLANNER_MODEL", "gemini-3-flash-preview")
     artist_model = os.getenv("POTERO_ARTIST_MODEL", "gemini-3-pro-image-preview")
     artist_fallbacks = os.getenv(
         "POTERO_ARTIST_FALLBACKS",
-        "imagen-3.0-generate-001,gemini-1.5-flash",
+        "gemini-2.5-flash-image",
     )
-    editor_model = os.getenv("POTERO_EDITOR_MODEL", "gemini-3-pro-preview")
+    editor_model = os.getenv("POTERO_EDITOR_MODEL", "gemini-3-flash-preview")
     editor_mode = os.getenv("POTERO_EDITOR_MODE", "rules").strip().lower()
     log_level = os.getenv("POTERO_LOG_LEVEL", "INFO").upper()
     require_api_key = _parse_bool(

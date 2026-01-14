@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import List
+import re
 
 from src.model_utils import update_model
 from src.state import SlideBrief
@@ -42,7 +43,7 @@ def run_brand_drift_preflight(
     brief: SlideBrief,
     theme: str,
 ) -> PreflightResult:
-    text = _normalize_text(" ".join([brief.positive_prompt, brief.negative_prompt]))
+    text = _normalize_text(brief.positive_prompt or "")
     theme_text = _normalize_text(theme)
 
     reasons: List[str] = []
@@ -132,12 +133,29 @@ def _append_if_missing(text: str, snippet: str) -> str:
 
 
 def _normalize_text(text: str) -> str:
-    return " ".join((text or "").lower().split())
+    cleaned = re.sub(r"[^a-z0-9\\-\\s]", " ", (text or "").lower())
+    return " ".join(cleaned.split())
 
 
 def _match_tokens(text: str, tokens: List[str], label: str) -> List[str]:
     matches = []
     for token in tokens:
-        if token in text:
+        if token in text and not _is_negated(text, token):
             matches.append(f"{label}:{token}")
     return matches
+
+
+def _is_negated(text: str, token: str) -> bool:
+    negations = ("no", "not", "without", "avoid", "never", "unapproved")
+    token_norm = _normalize_text(token)
+    if not token_norm:
+        return False
+    variants = [token_norm]
+    if " " not in token_norm and not token_norm.endswith("s"):
+        variants.append(f"{token_norm}s")
+    for neg in negations:
+        for variant in variants:
+            pattern = rf"(?:^|\\s){neg}\\s+(?:\\w+\\s+){{0,2}}{re.escape(variant)}(?:\\s|$)"
+            if re.search(pattern, text):
+                return True
+    return False

@@ -10,6 +10,7 @@ from src.asset_registry import AssetRegistry, AssetRegistryError
 from src.config import load_config
 from src.graph import create_graph, GraphState
 from src.logging_utils import configure_logging
+from src.model_utils import normalize_model_name
 from src.run_storage import RunStorage
 from src.state import RunBudget
 from src.upload_cache import UploadCache
@@ -45,14 +46,6 @@ def _first_incomplete_index(state):
 
 def _parse_fallbacks(value: str):
     return [item.strip() for item in value.split(",") if item.strip()]
-
-def _normalize_model_name(name: str) -> str:
-    if not name:
-        return name
-    if name.startswith("models/"):
-        return name
-    return f"models/{name}"
-
 
 def main():
     from google import genai
@@ -138,7 +131,7 @@ def main():
 
     # Initialize components
     planner = Planner(
-        model_name=_normalize_model_name(app_config.planner_model),
+        model_name=normalize_model_name(app_config.planner_model),
         registry=registry,
         planner_mode=app_config.planner_mode,
         potero_shader_version=app_config.potero_shader_version,
@@ -155,18 +148,18 @@ def main():
         client=client,
     )
     fallbacks = [
-        _normalize_model_name(model)
+        normalize_model_name(model)
         for model in _parse_fallbacks(app_config.artist_fallbacks)
     ]
     artist = Artist(
-        model_name=_normalize_model_name(app_config.artist_model),
+        model_name=normalize_model_name(app_config.artist_model),
         output_dir=storage.run_dir,
         upload_cache=upload_cache,
         client=client,
         fallbacks=fallbacks,
     )
     critic = Critic(
-        model_name=_normalize_model_name(app_config.critic_model),
+        model_name=normalize_model_name(app_config.critic_model),
         warn_threshold=app_config.critic_warn_threshold,
         fail_threshold=app_config.critic_fail_threshold,
         potero_pass_threshold=app_config.potero_pass_threshold,
@@ -176,13 +169,13 @@ def main():
         client=client,
     )
     editor = Editor(
-        model_name=_normalize_model_name(app_config.editor_model),
+        model_name=normalize_model_name(app_config.editor_model),
         mode=app_config.editor_mode,
         client=client,
         upload_cache=upload_cache,
     )
     artist_edit = ArtistEdit(
-        model_name=_normalize_model_name(app_config.artist_model),
+        model_name=normalize_model_name(app_config.artist_model),
         output_dir=storage.run_dir,
         upload_cache=upload_cache,
         client=client,

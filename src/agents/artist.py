@@ -154,9 +154,8 @@ class Artist:
             "Reference images are attached. Follow them as strict ground truth.\n"
             "Preserve all the details from the original images, especially "
             "hoodie color, embroidery, and print placement/scale.\n"
-            "Do not add any text or graphics unless it is the exact "
-            "'POTERO STANDARD' embroidery copied from the references; "
-            "if you cannot match it exactly, omit all text/logos."
+            "Do not add any text or graphics unless explicitly required by the brief; "
+            "if not required, omit all text/logos."
         ).strip()
 
     def _load_reference_images(
