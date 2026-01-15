@@ -10,10 +10,10 @@ This document describes the full code stack in this repository: runtime, depende
 ## Core architecture layers
 - **Orchestration**: LangGraph state machine (`src/graph.py`)
 - **Agents**: Planner, Artist, Critic, Editor (`src/agents/*.py`)
-- **Prompt compiler**: Locked shader/negative injection (`src/prompt_compiler.py`)
+- **Prompt invariants**: Locked shader/negative injection is handled in the planner (`src/agents/planner.py`)
 - **Preflight + kit consistency**: Drift checks and role enforcement (`src/preflight.py`, `src/kit_compiler.py`)
 - **Reference selection**: Role-based selection + golden packs (`src/reference_selector.py`, `src/golden_packs.py`)
-- **Crop critic + edit path**: Local defect targeting (`src/crop_critic.py`, `src/agents/artist_edit.py`)
+- **Local edit path**: Local defect targeting (`src/agents/artist_edit.py`)
 - **State and budget**: Pydantic models and budget accounting (`src/state.py`, `src/budget.py`)
 - **Assets**: Manifest-based registry (`src/asset_registry.py`) with reference files in `assets/references/`
 - **Persistence**: JSON run state and briefs stored in `output/<run_id>/` (`src/run_storage.py`)
@@ -84,7 +84,7 @@ Configuration is loaded in `src/config.py`. Names only (no values are printed he
 ## Asset stack
 - **Reference store**: `assets/references/`
 - **Manifest**: `assets/references/manifest.json`
-- **Validation**: `AssetRegistry` validates existence and expected entries for M05 swatches and design assets.
+- **Validation**: `AssetRegistry` validates existence and expected entries for design assets.
 
 ## Output artifacts
 - `output/<run_id>/state.json`

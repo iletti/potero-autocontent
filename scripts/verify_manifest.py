@@ -17,8 +17,6 @@ def verify_manifest():
     # Collect all paths from manifest
     for entry in manifest.get("global_references", []):
         all_paths_in_manifest.append(entry["path"])
-    for entry in manifest.get("m05_swatches", []):
-        all_paths_in_manifest.append(entry["path"])
     for design_id, entries in manifest.get("designs", {}).items():
         for entry in entries:
             all_paths_in_manifest.append(entry["path"])

@@ -14,7 +14,6 @@ from src.state import CarouselState, SlideBrief
 from src.model_utils import update_model
 from src.agents.planner import Planner
 from src.reference_selector import select_reference_assets
-from src.crop_critic import run_crop_critic, apply_crop_results
 from src.kit_compiler import apply_kit_consistency
 from src.preflight import apply_brand_drift_preflight, apply_style_tighten
 from src.agents.artist import Artist
@@ -41,12 +40,12 @@ def build_fallback_brief(
             "shot_type": "fallback_edge_human",
             "positive_prompt": (
                 "Anonymous edge-of-human detail: gloved hands, coffee steam, "
-                "M05 fabric edge, pine needles or rough concrete, harsh flash, "
+                "technical fabric edge, pine needles or rough concrete, harsh flash, "
                 "high ISO grain, crushed blacks. No faces, no weapons."
             ),
             "negative_prompt": (
                 "readable text, labels, logos, faces, eyes, skin, weapon, "
-                "patch, name tape, bright colors, studio lighting"
+                "patch, name tape, bright colors, studio lighting, woodland camouflage"
             ),
             "composition_guidance": "Leave the top-left quadrant empty.",
         },
@@ -54,12 +53,12 @@ def build_fallback_brief(
             "shot_type": "fallback_gear_layout",
             "positive_prompt": (
                 "Top-down gear layout on wool blanket or rough wood, "
-                "M05 gear details, props like kuksa or nokipannu, harsh flash, "
+                "ranger green gear details, props like kuksa or nokipannu, harsh flash, "
                 "grainy, no readable labels."
             ),
             "negative_prompt": (
                 "readable text, labels, logos, faces, eyes, skin, weapon, "
-                "patch, name tape, bright colors, studio lighting"
+                "patch, name tape, bright colors, studio lighting, woodland camouflage"
             ),
             "composition_guidance": "Leave the upper-right quadrant empty.",
         },
@@ -115,8 +114,19 @@ def create_graph(
         if state["briefs"]:
             return {}
         briefs = planner.generate_briefs(state["carousel_state"])
-        persist_state(state["carousel_state"], briefs)
-        return {"briefs": briefs}
+        
+        # Apply consistency checks once during planning
+        registry = planner.registry if planner else None
+        env = state["carousel_state"].global_constraints.environment
+        
+        refined_briefs = []
+        for b in briefs:
+            b = apply_kit_consistency(b, registry)
+            b, _ = apply_brand_drift_preflight(b, env)
+            refined_briefs.append(b)
+            
+        persist_state(state["carousel_state"], refined_briefs)
+        return {"briefs": refined_briefs}
 
     def artist_node(state: GraphState):
         carousel = state["carousel_state"]
@@ -162,26 +172,11 @@ def create_graph(
             return {"carousel_state": carousel, "skip_validation": True}
 
         brief = state["briefs"][current_idx]
-        brief = apply_kit_consistency(
-            brief,
-            planner.registry if planner else None,
-        )
-        brief, preflight = apply_brand_drift_preflight(
-            brief,
-            carousel.global_constraints.environment,
-        )
         if carousel.style_tighten_next:
             brief = apply_style_tighten(brief)
             carousel.style_tighten_next = False
-        if preflight.reasons:
-            logger.info(
-                "brand_drift_preflight",
-                extra={
-                    "slide_index": current_idx + 1,
-                    "status": preflight.status,
-                    "reasons": preflight.reasons,
-                },
-            )
+            state["briefs"][current_idx] = brief
+
         state["briefs"][current_idx] = brief
         persist_state(carousel, state["briefs"])
         if planner and planner.registry and brief.reference_roles_required:
@@ -369,20 +364,6 @@ def create_graph(
             image_path,
             reference_assets=brief.reference_assets,
         )
-        should_crop = result.get("opsec_pass") is True and not result.get("pass")
-        remaining_critic = (
-            carousel.budget.max_critic_calls - carousel.budget.critic_calls
-        )
-        max_crop_checks = min(2, max(0, remaining_critic))
-        if should_crop and max_crop_checks > 0:
-            crop_result = run_crop_critic(
-                critic=critic,
-                brief=brief,
-                image_path=image_path,
-                max_checks=max_crop_checks,
-                consume_fn=lambda: consume(carousel.budget, "critic"),
-            )
-            result = apply_crop_results(crop_result, result)
         if result.get("fatal"):
             carousel.budget.exceeded = True
             carousel.slides[current_idx].status = "failed"
@@ -486,12 +467,23 @@ def create_graph(
             )
         if allow_llm:
             consume(carousel.budget, "editor")
-        briefs[current_idx] = editor.refine_brief(
+        brief = editor.refine_brief(
             briefs[current_idx],
             state.get("critic_feedback") or "",
             reference_assets=briefs[current_idx].reference_assets,
             allow_llm=allow_llm,
         )
+        
+        # Re-apply consistency to the newly refined brief
+        brief = apply_kit_consistency(brief, planner.registry if planner else None)
+        brief, preflight = apply_brand_drift_preflight(
+            brief, 
+            carousel.global_constraints.environment
+        )
+        if preflight.reasons:
+             logger.info("editor_preflight_warning", extra={"reasons": preflight.reasons})
+             
+        briefs[current_idx] = brief
         persist_state(carousel, briefs)
         return {"briefs": briefs}
 

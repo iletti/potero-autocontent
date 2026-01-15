@@ -115,7 +115,7 @@ def load_config() -> AppConfig:
     artist_model = os.getenv("POTERO_ARTIST_MODEL", "gemini-3-pro-image-preview")
     artist_fallbacks = os.getenv(
         "POTERO_ARTIST_FALLBACKS",
-        "gemini-2.5-flash-image",
+        "",
     )
     editor_model = os.getenv("POTERO_EDITOR_MODEL", "gemini-3-flash-preview")
     editor_mode = os.getenv("POTERO_EDITOR_MODE", "rules").strip().lower()

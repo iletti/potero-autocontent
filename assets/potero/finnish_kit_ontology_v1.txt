@@ -1,4 +1,4 @@
-M05_CAMO: Finnish M05 organic blotch camouflage; no digital/pixel camo.
+GREY_MAN_GEAR: Solid Ranger Green or Grey gear; no camouflage patterns.
 RK95_TP: Finnish RK95 rifle silhouette; avoid AR-15/M4 geometry.
 SAVOTTA_JAAKARI_34: Finnish Savotta Jaakari backpack; straight, evenly spaced PALS webbing.
 PALS_WEBBING: Rigid horizontal rows; no wavy or floating straps.
@@ -7,4 +7,4 @@ COMTAC_HEADSET: Over-ear comms headset with headband; no visible branding.
 PGD_HIGH_CUT: High-cut helmet silhouette; matte finish, no logos.
 MECHANIX_GLOVES: Tactical gloves; keep text and logos unreadable.
 BLACK_COMBAT_BOOTS: Plain black combat boots; no visible branding.
-M05_BELT_DUMP_POUCH: Belt-mounted dump pouch; no labels.
+TACTICAL_BELT_DUMP_POUCH: Belt-mounted dump pouch; no labels.

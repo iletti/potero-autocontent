@@ -31,7 +31,7 @@ Defined in `src/state.py`:
 - **Modes**:
   - `template`: use fixed templates per theme.
   - `template+llm`: refine prompts via LLM, constrained to preserve indices and shot types.
-- **Prompt compilation**: Uses `src/prompt_compiler.py` to inject locked Potero shader/negative blocks.
+- **Prompt compilation**: Planner injects locked Potero shader/negative blocks directly into briefs.
 - **Metadata**: Infers intent, env preset, lighting signature, risk profile, kit anchors, and role requirements.
 - **Reference roles**: Populates `reference_roles_required` for deterministic role-based selection.
 - **Theme templates**:
@@ -40,7 +40,7 @@ Defined in `src/state.py`:
 
 ### Artist (`src/agents/artist.py`)
 - **Purpose**: Generate images from the brief and references.
-- **Model fallback**: Primary model plus configured fallbacks (defaults: `imagen-3.0-generate-001`, `gemini-1.5-flash`).
+- **Model selection**: Nanobanana (`gemini-3-pro-image-preview`) only; fallbacks disabled by default.
 - **Prompt construction**: Combines positive prompt, negative prompt, composition guidance, and a strict reference adherence instruction.
 - **Anchor injection**: For slides 2-5, the image of slide 1 (anchor) is attached as context.
 - **Candidate pool**: Slide 1 can generate multiple candidates and select the best by critic score (budget gated).
@@ -48,7 +48,7 @@ Defined in `src/state.py`:
 
 ### Critic (`src/agents/critic.py`)
 - **Purpose**: VQA-based validation of outputs against OPSEC and brand rules.
-- **Checklist**: Face/tattoo visibility, unapproved text/logos, finger count, M05 accuracy, hoodie camo misuse, hoodie front/back consistency, embroidery accuracy, lighting style.
+- **Checklist**: Face/tattoo visibility, unapproved text/logos, finger count, gear accuracy, hoodie front/back consistency, embroidery accuracy, lighting style.
 - **Output**: Strict JSON with `opsec_pass`, `potero_score`, `potero_breakdown`, `qa_score`, `repair_mode`, and `violations`.
 - **Fail-fast**: Certain violations force `pass=false` and low `qa_score`.
 - **Grading**: `qa_status` is `pass`, `warn`, or `fail` based on thresholds.
@@ -94,7 +94,7 @@ graph TD
 - **Critic node**:
   - If `skip_validation` is set, bypasses critic and returns failure or success based on slide state.
   - Consumes critic budget; if exceeded, marks slide failed.
-  - Runs critic validation, optionally runs crop-critic checks (budget gated), updates Potero/OPSEC fields.
+  - Runs critic validation and updates Potero/OPSEC fields.
 - **Editor node**: Refines the brief, optionally consuming editor budget.
 - **ArtistEdit node**: Applies localized edit instructions and returns to critic.
 - **Advance node**: Moves to the next slide and resets critic/retry flags.
@@ -110,7 +110,7 @@ graph TD
 - Budgets are enforced via `src/budget.py` using `can_consume` and `consume`.
 - Exceeding any limit marks the run as exceeded and halts further processing.
 - Retry count is tracked per slide; retries beyond `max_retries_per_slide` trigger fallback.
-- Anchor candidate scoring and crop-critic checks are budget gated to prevent runaway cost.
+- Anchor candidate scoring is budget gated to prevent runaway cost.
 
 ## Asset handling and reference caching
 - `AssetRegistry` enforces a role/tag manifest for reference assets.

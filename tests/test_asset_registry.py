@@ -17,31 +17,24 @@ class TestAssetRegistry(unittest.TestCase):
             references = Path(tmpdir) / "references"
             references.mkdir()
             manifest = {
-                "global_references": ["m05/missing.png"],
-                "m05_swatches": [],
+                "global_references": ["env/missing.png"],
                 "designs": {},
             }
             self._write_manifest(references, manifest)
             registry = AssetRegistry.load(references)
             missing = registry.validate()
-            self.assertIn("m05/missing.png", missing)
+            self.assertIn("env/missing.png", missing)
 
     def test_resolves_assets(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             references = Path(tmpdir) / "references"
-            (references / "m05").mkdir(parents=True)
             (references / "hoodies").mkdir(parents=True)
 
-            swatch = references / "m05" / "m05.png"
-            swatch.write_text("x")
             hoodie = references / "hoodies" / "h.png"
             hoodie.write_text("x")
 
             manifest = {
                 "global_references": [],
-                "m05_swatches": [
-                    {"path": "m05/m05.png", "role": "TEXTURE_M05_WOODLAND"}
-                ],
                 "designs": {
                     "hoodie_013": [
                         {"path": "hoodies/h.png", "role": "DESIGN_FRONT"}
@@ -51,10 +44,6 @@ class TestAssetRegistry(unittest.TestCase):
             self._write_manifest(references, manifest)
             registry = AssetRegistry.load(references)
 
-            self.assertEqual(
-                registry.get_m05_swatches(),
-                [str(swatch)],
-            )
             self.assertEqual(
                 registry.get_design_assets("hoodie_013"),
                 [str(hoodie)],
@@ -66,7 +55,6 @@ class TestAssetRegistry(unittest.TestCase):
             references.mkdir()
             manifest = {
                 "global_references": [],
-                "m05_swatches": [],
                 "designs": {},
             }
             self._write_manifest(references, manifest)
@@ -80,7 +68,6 @@ class TestAssetRegistry(unittest.TestCase):
             references.mkdir()
             manifest = {
                 "global_references": [{"path": "/etc/passwd", "role": "ENV_BAD"}],
-                "m05_swatches": [],
                 "designs": {},
             }
             self._write_manifest(references, manifest)

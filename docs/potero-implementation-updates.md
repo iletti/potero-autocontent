@@ -28,8 +28,7 @@ This document summarizes the implementation changes completed in this repo to al
 - `POTERO_ANCHOR_CANDIDATES`
 
 ## Prompt compilation
-- `src/prompt_compiler.py` enforces locked shader/negative blocks.
-- Planner compiles prompts and strips any attempted edits to locked blocks.
+- Planner injects locked shader/negative blocks directly into briefs.
 
 ## Brief schema (internal)
 `SlideBrief` now includes:
@@ -41,9 +40,6 @@ This document summarizes the implementation changes completed in this repo to al
 
 ```json
 {
-  "m05_swatches": [
-    {"path": "m05/m05_swatch.jpg", "role": "TEXTURE_M05_WOODLAND", "tags": ["m05", "woodland"]}
-  ],
   "designs": {
     "rk_hoodie": [
       {"path": "hoodies/hoodie_rk_black_front.webp", "role": "DESIGN_FRONT"},
@@ -66,11 +62,10 @@ This document summarizes the implementation changes completed in this repo to al
 
 ## Critic schema and repair routing
 - `src/agents/critic.py` now returns OPSEC + Potero scoring fields and repair hints.
-- `src/crop_critic.py` provides a crop-critic stage (scaffold) with edit targets.
 - `src/agents/editor.py` adds `style_tighten` and `defect_fix` modes.
 - `src/agents/artist_edit.py` adds edit-mode image calls.
 - `src/graph.py` routes edit-mode failures to ArtistEdit, otherwise regen via Editor.
- - Crop checks and anchor candidate scoring consume critic budget and are capped to prevent runaway cost.
+- Anchor candidate scoring consumes critic budget and is capped to prevent runaway cost.
 
 ## Fallback behavior
 - `build_fallback_brief` now rotates Potero-safe fallback templates.
@@ -86,7 +81,6 @@ This document summarizes the implementation changes completed in this repo to al
 - Critic repair targets are logged for diagnostics.
 
 ## Tests added
-- `tests/test_prompt_compiler.py`
 - `tests/test_reference_selector.py`
 - `tests/test_edit_mode_routing.py`
 - `tests/test_fallback_templates.py`

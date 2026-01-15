@@ -55,11 +55,10 @@ Proposed solution: Only use reference images with naming "back" to backshots and
 
 ## 4. Required Actions
 1.  **Resolve Model Naming:** Update our logic to use latest google models.
-2.  **Hard-code Design Rules:** Update `src/agents/planner.py` or the `prompt_compiler.py` to explicitly forbid the "POTERO STANDARD" text on the back of hoodies and pin it to the left chest area.
+2.  **Hard-code Design Rules:** Update `src/agents/planner.py` to explicitly forbid the "POTERO STANDARD" text on the back of hoodies and pin it to the left chest area.
 3.  **Negative Prompting:** Add "no text on back", "no large logos" to the global artist constraints.
 
 
 Other notes:
 For safety lets leace all composition_guidance promts out of mentios of "text" or "logo" and only mention empty space or other visual composition.
 "composition_guidance": "Leave top-left empty for typography.",
-

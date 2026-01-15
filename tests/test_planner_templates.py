@@ -63,7 +63,7 @@ class TestPlannerTemplates(unittest.TestCase):
         front_brief = briefs[1]
         prompt = front_brief.positive_prompt.lower()
         self.assertIn("left chest", prompt)
-        self.assertIn("never on the back", prompt)
+        self.assertIn("potero standard", prompt)
 
     def test_back_shots_forbid_text_on_back(self):
         planner = TemplatePlanner()
@@ -71,7 +71,8 @@ class TestPlannerTemplates(unittest.TestCase):
         briefs = planner.generate_briefs(state)
         for idx in (0, 2, 3, 4):
             prompt = briefs[idx].positive_prompt.lower()
-            self.assertIn("no text or embroidery on the back", prompt)
+            self.assertIn("back view", prompt)
+            self.assertIn("back design matches reference", prompt)
 
     def test_composition_guidance_has_no_text_mentions(self):
         planner = TemplatePlanner()

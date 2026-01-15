@@ -25,7 +25,7 @@ class Artist:
     ):
         self.primary_model = model_name
         self.interaction_logger = interaction_logger
-        self.fallbacks = fallbacks or ["imagen-3.0-generate-001", "gemini-1.5-flash"]
+        self.fallbacks = fallbacks if fallbacks is not None else []
         self.output_dir = Path(output_dir)
         self.logger = logging.getLogger(__name__)
         self.client = client

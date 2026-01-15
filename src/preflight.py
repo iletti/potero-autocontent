@@ -8,8 +8,8 @@ from src.state import SlideBrief
 STYLE_TIGHTEN_DELTA = (
     "Increase on-axis flash intensity and harsh shadowing. "
     "Add high ISO grain and subtle color noise. "
-    "Enforce Nordic palette: desaturated blues/greens, no warm tones. "
-    "Candid imperfections; avoid influencer warcore cues."
+    "Enforce Ranger Green and Grey palette. "
+    "Candid documentary aesthetics; avoid tactical influencer warcore cues."
 )
 
 
@@ -57,11 +57,13 @@ def run_brand_drift_preflight(
         "high fashion",
         "epic",
         "movie poster",
+        "woodland camo",
     ]
     us_kit = [
         "ar-15",
         "m4",
         "multicam",
+        "crye",
         "seal",
         "navy seal",
         "delta",
@@ -91,11 +93,11 @@ def run_brand_drift_preflight(
         return PreflightResult(status="ok", reasons=[], constraints="")
 
     constraints = (
-        "Documentary snapshot, candid, understated. "
+        "Documentary snapshot, candid, understated professional. "
+        "Enforce Ranger Green and Grey gear. No woodland camouflage. "
         "No cinematic lighting, no golden hour, no hero poses. "
         "No US kit (AR-15/M4/Multicam/SEAL). "
-        "No readable text, logos, or patch lettering. "
-        "If winter/kaamos, keep cool color temperature and avoid warm light."
+        "No readable text, logos, or patch lettering."
     )
     return PreflightResult(
         status="rewrite_required",

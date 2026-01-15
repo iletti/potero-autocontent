@@ -65,7 +65,6 @@ class AssetRegistry:
 
     def validate_required(self, design_id: str) -> List[str]:
         required: List[str] = []
-        required.extend(self._extract_paths(self.manifest.get("m05_swatches", [])))
         designs = self.manifest.get("designs", {})
         if isinstance(designs, dict):
             design_entry = designs.get(design_id) or {}
@@ -73,7 +72,7 @@ class AssetRegistry:
 
         if not required:
             raise AssetRegistryError(
-                "Manifest must include m05_swatches and design assets."
+                "Manifest must include design assets for the selected design."
             )
 
         missing: List[str] = []
@@ -90,11 +89,6 @@ class AssetRegistry:
     def get_global_assets(self) -> List[str]:
         return self._resolve_list(
             self._extract_paths(self.manifest.get("global_references", []))
-        )
-
-    def get_m05_swatches(self) -> List[str]:
-        return self._resolve_list(
-            self._extract_paths(self.manifest.get("m05_swatches", []))
         )
 
     def get_design_assets(self, design_id: str) -> List[str]:
@@ -125,9 +119,6 @@ class AssetRegistry:
         records: List[AssetRecord] = []
         records.extend(
             self._extract_records(self.manifest.get("global_references", []))
-        )
-        records.extend(
-            self._extract_records(self.manifest.get("m05_swatches", []))
         )
         designs = self.manifest.get("designs", {})
         if isinstance(designs, dict):

@@ -23,6 +23,8 @@ Gate B - Potero Standard (hard fail below threshold)
 
 If OPSEC passes but PoteroScore is 6.0-7.4: return warn (optionally allow pass), but force style-tightening injection on the next attempt/next slide.
 
+Grey Man emphasis: solid Ranger Green/Grey gear, no camouflage patterns, no flashy branding.
+
 ---
 
 ## 1) Make Potero Standard a locked, versioned artifact
@@ -70,7 +72,7 @@ Add these fields (internal; they compile into text prompts + ref packs):
 - risk_profile (enum): low | medium | high (high = weapons + hands + faces risk)
 - reference_roles_required (list): see Section 3
 
-These make prompts compiler output, not free text vibes.
+These make prompts deterministic output, not free text vibes.
 
 ---
 
@@ -82,11 +84,10 @@ Extend `assets/references/manifest.json` to tag each asset with a role and optio
 
 Roles (recommended baseline)
 - IDENTITY_ANCHOR (slide 1 final image becomes this for slides 2-5)
-- TEXTURE_M05_WOODLAND, TEXTURE_M05_SNOW
 - WEAPON_RK95_LEFT, WEAPON_RK95_RIGHT, WEAPON_RK95_MUZZLE_CLOSE
-- GEAR_PLATE_CARRIER_LAYOUT, GEAR_POUCHES_DETAIL, GEAR_BELT_DUMP_POUCH
+- GEAR_PLATE_CARRIER_FRONT, GEAR_PLATE_CARRIER_BACK, GEAR_POUCHES_DETAIL, GEAR_BELT_DUMP_POUCH
 - GEAR_HELMET_HIGH_CUT, GEAR_HEADSET_COMTAC
-- GEAR_BACKPACK_JAAKARI_34, GEAR_PALS_CLOSE, GEAR_STRAPS_CONNECT
+- GEAR_BACKPACK_FRONT, GEAR_BACKPACK_BACK, GEAR_PALS_CLOSE, GEAR_STRAPS_CONNECT
 - ENV_TAIGA_WINTER_KAAMOS, ENV_TAIGA_SUMMER_NIGHT, ENV_CQB_OSB, ENV_INDUSTRIAL_HALL, ENV_SHELTER
 - PROP_KUKSA, PROP_NOKIPANNU, PROP_WATER_CAN, PROP_GEAR_MAINTENANCE
 
@@ -99,7 +100,6 @@ Rules
 - Hard cap 14 (model limit).
 - Always include:
   - 1x environment vibe (ENV_*)
-  - 1x M05 texture (matching season)
   - If weapon in scene: 1x RK95 silhouette + 1x muzzle close
   - If Savotta shown: 1x backpack 3/4 + 1x PALS close
   - If plate carrier: 1x layout + 1x pouch detail
@@ -127,17 +127,17 @@ For Nano Banana Pro (Gemini 3 Pro Image preview), use `generate_content` and pas
   - aspect ratio 4:5
   - image size 2K default, 4K for PALS-heavy / texture-critical slides
 
-Keep Imagen as fallback only.
+Keep Nanobanana as the only image model; fallbacks are disabled by default.
 
 Recommended env vars
 - `POTERO_IMAGE_ASPECT=4:5`
 - `POTERO_IMAGE_SIZE=2K|4K`
 - `POTERO_ARTIST_MODEL=gemini-3-pro-image-preview`
-- `POTERO_ARTIST_FALLBACKS=imagen-3.0-generate-001,...`
+- `POTERO_ARTIST_FALLBACKS=` (leave empty to disable fallbacks)
 
 ---
 
-## 5) Prompt compiler: enforce a consistent prompt structure
+## 5) Prompt invariants: enforce a consistent prompt structure
 
 Do not let Planner output raw prose. Build a deterministic template:
 
@@ -153,7 +153,7 @@ Negative prompt structure
 1. Potero Negative (locked)
 2. Additional slide-specific bans:
    - if winter: "no warm golden light"
-   - if M05: "no pixelated/digital squares"
+   - if camo drift: "no camouflage patterns"
    - if weapon: "no AR-15/M4 silhouette"
    - if high-risk hands: "hands not centered; avoid fingers close to camera"
 
@@ -193,23 +193,6 @@ Extend Critic output to include:
   "confidence": 0.82
 }
 ```
-
-### 6.2 Add crop critic stage (high impact)
-
-Before scoring the full image, run checks on crops:
-- weapon muzzle region
-- stock/receiver region
-- PALS/webbing region
-- shoulder strap connection region
-- M05 fabric region
-
-Implementation option:
-- First call: Gemini Flash returns bounding boxes for these targets (or approximate coordinates).
-- Second call(s): Critic evaluates each crop and returns local failures.
-
-If crop checks fail -> set `repair_mode="edit"` and specify `repair_targets`.
-
----
 
 ## 7) Editor v2: two modes - style-tighten vs defect-fix
 
@@ -253,7 +236,7 @@ This reduces the "fix one thing, break three" problem.
 Current fallback drops references and produces generic textures. Replace with 3 Potero-safe fallback templates (still reference-driven, low OPSEC risk):
 
 1) Anonymous edge-of-human
-- gloves + coffee steam + M05 fabric edge + pine needles / concrete
+- gloves + coffee steam + solid Ranger Green/Grey fabric edge + pine needles / concrete
 - no faces, no weapon, no readable packaging
 
 2) Gear layout / inspection
@@ -264,17 +247,17 @@ Current fallback drops references and produces generic textures. Replace with 3 
 - taiga night / shelter corridor / OSB wall texture with flash hotspot and noise
 
 Fallback still uses:
-- ENV reference + texture ref + prop refs
+- ENV reference + prop refs
 - always includes shader/negative blocks
 
 ---
 
 ## 10) Unit tests you should add (fast, prevents regressions)
 
-Prompt compiler tests
-- shader and negative blocks always present
+Planner invariant tests
+- shader and negative blocks always present in the assembled prompt
 - role-based refs selected correctly for:
-  - winter weapon slide (must include M05 snow + RK95 muzzle + ENV kaamos)
+  - winter weapon slide (must include RK95 muzzle + ENV kaamos)
   - Savotta slide (must include PALS close + straps connect)
   - cap enforcement (<=14)
 
@@ -311,13 +294,12 @@ Persist these into state for deterministic resume.
 1. Add Potero assets (shader/negative/ontology/intents) + versioning
 2. Extend manifest with roles + tags
 3. Implement role-based reference selector
-4. Implement prompt compiler template (locked ordering)
+4. Implement planner prompt structure (locked ordering)
 5. Upgrade Critic JSON output + PoteroScore rubric
-6. Add crop-critic stage (bbox -> crop eval)
-7. Add ArtistEdit node and routing
-8. Replace fallback with Potero-safe fallback templates
-9. Add tests + smoke check scenario for each env preset
-10. Ship User Guide (how to provide refs) so inputs are consistent
+6. Add ArtistEdit node and routing
+7. Replace fallback with Potero-safe fallback templates
+8. Add tests + smoke check scenario for each env preset
+9. Ship User Guide (how to provide refs) so inputs are consistent
 
 ---
 
@@ -362,7 +344,7 @@ If a required role score < threshold:
 
 Each preset ships with:
 - 1-2 environment vibe refs
-- 1 M05 texture ref (or snow variant)
+- 1-2 solid fabric/gear texture refs (Ranger Green/Grey, no camo)
 - 1-2 lighting exemplars (lo-fi flash look)
 - 1-2 Finnish identity cues (shelter wall, OSB, taiga texture)
 
@@ -370,14 +352,14 @@ Each preset ships with:
 
 Strategy
 - generate 3-4 candidates
-- run critic + crop critic
+- run critic
 - pick highest opsec_pass and potero_score and use it as anchor
 
 ### 6) Add local repair playbooks (deterministic fixes per defect)
 
 Defect -> action examples
 - Warm winter -> edit: "shift white balance cooler, kaamos blue, reduce warm highlights"
-- Pixel camo -> edit localized on fabric: "replace with organic blotches matching M05 swatch"
+- Camo drift -> edit localized on fabric: "replace with solid Ranger Green/Grey fabric"
 - RK95 becomes AK -> edit rifle region + attach muzzle ref + silhouette ref
 - PALS wobbly -> edit backpack area: "straight evenly spaced webbing rows"
 - Floating straps -> edit shoulder region: "strap connects into carrier/buckle"

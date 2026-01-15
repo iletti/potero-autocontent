@@ -132,7 +132,9 @@ Be brand-positive and lenient. Only fail if there is a severe design mismatch or
 REPAIR LOGIC:
 - If failures are LOCAL and MINOR (e.g., "logo_mismatch", "hoodie_mismatch" due to small embroidery error, "small_texture_defect"), set "repair_mode": "edit".
 - If failures are GLOBAL (e.g., "face visible", "wrong product entirely"), set "repair_mode": "regen".
-- Default to "pass": true if the image looks good enough for social media.
+- Default to "repair_mode": "none" if no repair is needed.
+- If "repair_mode" is "edit" or "regen", you MUST also provide "repair_targets" and "repair_instructions".
+- Default to "pass": true if the image looks good enough for social media AND no repairs are needed.
 
 Checklist:
 {questions}
@@ -240,7 +242,15 @@ Return strict JSON only in this format:
                 result["qa_score"] = min(result.get("qa_score", 0), 10)
             result["opsec_pass"] = False
             if not result.get("feedback"):
-                result["feedback"] = "Hard fail: OPSEC violation."
+                result["feedback"] = "Hard fail: OPSEC or Brand violation."
+
+        # Sharp check for ANY text hallucination if repair targets point to text
+        repair_targets = result.get("repair_targets") or []
+        if any("text" in str(t).lower() or "logo" in str(t).lower() for t in repair_targets):
+             # If we're suggesting an edit for text, it's not a lenient pass
+             result["pass"] = False
+             if result.get("qa_score") is not None:
+                  result["qa_score"] = min(result.get("qa_score", 100), 74) # Below default 75 pass threshold
         return result
 
     def _apply_thresholds(self, result: Dict[str, Any]) -> Dict[str, Any]:
@@ -259,7 +269,12 @@ Return strict JSON only in this format:
             qa_score = int(max(0.0, min(10.0, potero_score)) * 10)
 
         passed = result.get("pass")
+        repair_mode = result.get("repair_mode")
+
         if opsec_pass is False:
+            passed = False
+        elif repair_mode in ["edit", "regen"]:
+            # If a repair is needed, it's NOT a clean pass
             passed = False
         elif potero_score is not None:
             if potero_score >= self.potero_pass_threshold:

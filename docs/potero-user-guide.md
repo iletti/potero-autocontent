@@ -30,10 +30,10 @@ Provide 3-6 photos that clearly show:
 - background falloff into darkness
 - high ISO noise / "bad jpeg" feel
 
-3) M05 camo texture
+3) Solid fabric texture (Grey Man)
 Provide 2-4 high-res fabric close-ups/scans:
-- M05 woodland (organic blotches, not pixel)
-- M05 snow (if winter themes)
+- Ranger Green or Grey, no camouflage patterns
+- winter themes: prefer darker, colder fabric lighting
 
 ### B) If you want people in the images (recommended pack)
 
@@ -59,7 +59,7 @@ Provide:
 - plate carrier refs (ResTac / Finnish setup)
   - full front layout
   - pouch layout close-up
-- belt setup refs (M05/OD belt + dump pouch)
+- belt setup refs (Ranger Green/OD belt + dump pouch)
   - full belt
   - dump pouch close-up
 - Savotta refs
@@ -85,15 +85,12 @@ assets/references/
 
   LIGHTING_LOFI_FLASH/
 
-  TEXTURE_M05_WOODLAND/
-  TEXTURE_M05_SNOW/
-
   WEAPON_RK95_LEFT/
   WEAPON_RK95_RIGHT/
   WEAPON_RK95_MUZZLE_CLOSE/
   WEAPON_RK95_RECEIVER_STOCK/
 
-  GEAR_PLATE_CARRIER_LAYOUT/
+  GEAR_PLATE_CARRIER_LAYOUT/ (tag as GEAR_PLATE_CARRIER_FRONT/BACK in manifest)
   GEAR_POUCHES_DETAIL/
   GEAR_BELT_DUMP_POUCH/
   GEAR_BATTLE_BELT_FRONT/
@@ -101,7 +98,7 @@ assets/references/
   GEAR_BATTLE_BELT_SIDE_LEFT/
   GEAR_IFAK_POUCH_DETAIL/
 
-  GEAR_BACKPACK_JAAKARI_34/
+  GEAR_BACKPACK_JAAKARI_34/ (tag as GEAR_BACKPACK_FRONT/BACK in manifest)
   GEAR_PALS_CLOSE/
   GEAR_STRAPS_CONNECT/
 
@@ -119,7 +116,7 @@ assets/references/
 If you are using Shopify MCP instead, the system can fetch product images automatically, but you still should provide:
 - environment refs
 - lo-fi flash refs
-- M05 texture refs
+- solid fabric refs (Ranger Green/Grey, no camo)
 
 ---
 
@@ -140,7 +137,7 @@ Critical close-ups (do not skip)
 - RK95 muzzle close
 - Savotta PALS close
 - backpack strap connections
-- M05 texture close
+- solid fabric close (Ranger Green/Grey, no camo)
 
 ---
 
@@ -197,13 +194,13 @@ If you need a gaze look, use:
 ## 8) If you want credible Finnish kit (target loadout)
 
 Include refs for:
-- M05 camo pants: Crye-style M05 battle pants / Sarma TST battlepants
+- solid Ranger Green/Grey pants (no camo)
 - Weapon: RK95 TP
-- Carrier: ResTac M05 setup with mag pouches + admin pouch
+- Carrier: ResTac setup in Ranger Green/Grey with mag pouches + admin pouch
 - Pouches: Savotta
 - Backpack: Sarma TST or Savotta Jaakari
 - Boots: black combat boots
-- Belt: M05/OD belt + dump pouch
+- Belt: Ranger Green/OD belt + dump pouch
 - Helmet: PGD high cut + Comtac
 - Gloves: Mechanix
 
@@ -215,7 +212,7 @@ Important: the system needs visual references for these, not just the names.
 
 - 1 environment pack (3-8 images)
 - 1 lo-fi flash pack (3-6 images)
-- M05 texture pack (2-4 images)
+- Solid fabric texture pack (2-4 images, Ranger Green/Grey, no camo)
 - If weapon: RK95 muzzle close + silhouette
 - If Savotta: PALS close + straps connect
 - If plate carrier/belt: layout + dump pouch refs + realistic battle belt (front/back/IFAK)
@@ -233,7 +230,7 @@ If yes, you will get consistent Potero output.
 - Fix: add kaamos environment refs + add lo-fi flash refs from winter + avoid "sunset".
 
 "Camo becomes pixelated"
-- Fix: provide higher-res M05 swatch close-ups and avoid the word "digital".
+- Fix: provide higher-res solid fabric close-ups and avoid any camo keywords.
 
 "PALS webbing is wobbly"
 - Fix: add PALS close-up references; request 4K for that slide if available.

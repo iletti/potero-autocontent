@@ -4,8 +4,6 @@ Recommended structure:
 
 assets/references/
   manifest.json
-  m05/
-    m05_swatch.png
   hoodies/
     hoodie_013_ranger_green_front.png
     hoodie_013_ranger_green_macro.png
@@ -16,7 +14,6 @@ Manifest format (example):
 
 {
   "global_references": [],
-  "m05_swatches": ["m05/m05_swatch.png"],
   "designs": {
     "hoodie_013_ranger_green": {
       "front": "hoodies/hoodie_013_ranger_green_front.png",

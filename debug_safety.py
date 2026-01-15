@@ -72,7 +72,7 @@ def test_prompt(name, prompt_text, image_paths=None):
 
 # 1. Full Provocative Prompt (from Log)
 full_prompt = """
-Photorealistic raw photo, Finnish Reservist aesthetic, Ranger Green or Grey gear, grainy, high ISO, crushed blacks, desaturated greens/blues. Shot on 35mm film, harsh on-camera flash. Documentary style, not cinematic. Hoodie must exactly match the provided reference images. Gear must be solid Ranger Green or Grey. NO Camo patterns on gear. Trust the reference images for all gear branding and details. No unapproved text or logos; if gear has visible brands in references, they are allowed. Back view of Finnish reservist wearing the reference hoodie standing still, shoulders relaxed, rifle low, face fully obscured by hood and angle, harsh flash, M05 gear visible, back design matches reference and may be partially occluded by gear
+Photorealistic raw photo, Finnish Reservist aesthetic, Ranger Green or Grey gear, grainy, high ISO, crushed blacks, desaturated greens/blues. Shot on 35mm film, harsh on-camera flash. Documentary style, not cinematic. Hoodie must exactly match the provided reference images. Gear must be solid Ranger Green or Grey. NO Camo patterns on gear. Trust the reference images for all gear branding and details. No unapproved text or logos; if gear has visible brands in references, they are allowed. Back view of Finnish reservist wearing the reference hoodie standing still, shoulders relaxed, rifle low, face fully obscured by hood and angle, harsh flash, Ranger Green gear visible, back design matches reference and may be partially occluded by gear
 """
 
 # 2. Sanitized Prompt (No "rifle", "reservist", "flash", "warcore" vibes explicitly minimized)

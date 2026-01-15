@@ -409,7 +409,11 @@ def main():
     
     # For simulation, we'll just run a few slides
     logger.info("swarm_orchestration_start")
-    run_config = {"recursion_limit": 50}
+    estimated_steps = max(
+        50,
+        len(state.slides) * (state.budget.max_retries_per_slide + 2) * 6,
+    )
+    run_config = {"recursion_limit": estimated_steps}
     app.invoke(initial_state, run_config)
 
     logger.info("swarm_orchestration_complete")

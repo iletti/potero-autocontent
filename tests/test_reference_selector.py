@@ -13,14 +13,17 @@ class TestReferenceSelector(unittest.TestCase):
             refs = Path(tmpdir) / "references"
             refs.mkdir()
             (refs / "env").mkdir()
-            (refs / "m05").mkdir()
+            (refs / "hoodies").mkdir()
             (refs / "env" / "e.png").write_text("x")
-            (refs / "m05" / "m.png").write_text("x")
+            (refs / "hoodies" / "h.png").write_text("x")
 
             manifest = {
-                "global_references": [],
-                "m05_swatches": [{"path": "m05/m.png", "role": "TEXTURE_M05_WOODLAND"}],
-                "designs": {},
+                "global_references": [
+                    {"path": "env/e.png", "role": "ENV_TAIGA_SUMMER_NIGHT"}
+                ],
+                "designs": {
+                    "hoodie": [{"path": "hoodies/h.png", "role": "DESIGN_FRONT"}]
+                },
             }
             (refs / "manifest.json").write_text(__import__("json").dumps(manifest))
             registry = AssetRegistry.load(refs)
@@ -31,7 +34,7 @@ class TestReferenceSelector(unittest.TestCase):
                 positive_prompt="",
                 negative_prompt="",
                 reference_assets=[],
-                reference_roles_required=["ENV_TAIGA_SUMMER_NIGHT", "TEXTURE_M05_WOODLAND"],
+                reference_roles_required=["ENV_TAIGA_SUMMER_NIGHT", "DESIGN_FRONT"],
             )
             selected, _, _ = select_reference_assets(
                 brief,

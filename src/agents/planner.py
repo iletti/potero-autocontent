@@ -18,24 +18,30 @@ from src.state import (
 from src.interaction_logger import InteractionLogger
 
 
-GLOBAL_STYLE_BLOCK = (
-    "Photorealistic raw photo, Finnish Reservist aesthetic, Ranger Green or Grey gear, "
-    "grainy, high ISO, crushed blacks, desaturated greens/blues. "
-    "Shot on 35mm film, harsh on-camera flash. Documentary style, not cinematic."
+POTERO_SHADER_V1_2 = (
+    "Raw lo-fi documentary flash photo (on-axis flash, hard shadows, hotspot falloff). "
+    "Cold blue ambient, desaturated greens, crushed blacks. "
+    "Heavy 35mm grain with subtle dust/scratches (SA-kuva), not clean digital. "
+    "Center-weighted framing, 24-28mm feel, f/8-ish depth, no cinematic bokeh. "
+    "Anonymity/OPSEC: no face/eyes/skin identifiers; hood/helmet/balaclava OK. "
+    "Symbols worn, not shouted: no extra text/logos beyond approved hoodie design."
 )
-DESIGN_INVARIANTS = (
-    "Hoodie must exactly match the provided reference images. "
-    "Gear must be solid Ranger Green or Grey. NO Camo patterns on gear. "
-    "Trust the reference images for all gear branding and details. "
-    "No unapproved text or logos; if gear has visible brands in references, they are allowed."
+IDENTITY_LOCKS = (
+    "Hoodie must exactly match the provided reference images (front/back as required). "
+    "Gear must be solid Ranger Green/Grey only, matte Cordura and real hardware. "
+    "Material contrast matters: cordura/nylon/polymer should reflect differently. "
+    "Nordic utilitarian kit cues; Finnish reservist realism; no US SF cosplay."
 )
-# Deduped negative constraints
-NEGATIVE_CONSTRAINTS = (
+POTERO_NEGATIVE_V1_2 = (
     "bad anatomy, extra fingers, watermark, signature, username, "
     "unapproved text, typography, slogans, numbers, "
     "unapproved logos, patches on gear, chest rig logos, "
     "flag, name tape, face, eyes, skin, bright colors, sunny, "
-    "studio lighting, bokeh, 3d render, cgi."
+    "studio lighting, softbox, rim light, HDR, glossy commercial look, "
+    "cinematic teal-orange grading, bokeh, 3d render, cgi, "
+    "decorative snowfall overlay, bokeh snow particles, glitter, sparkles, "
+    "floating dust particles, fake film overlay snow, "
+    "US special forces vibe, multicam, Crye logos, American flag patches."
 )
 
 
@@ -94,23 +100,15 @@ ENV_ROLE_BY_PRESET = {
     "shelter_brutalist": "ENV_SHELTER",
 }
 
-M05_ROLE_BY_PRESET = {
-    "taiga_winter_kaamos": "TEXTURE_M05_SNOW",
-    "taiga_summer": "TEXTURE_M05_WOODLAND",
-    "cqb_osb": "TEXTURE_M05_WOODLAND",
-    "industrial_hall": "TEXTURE_M05_WOODLAND",
-    "shelter_brutalist": "TEXTURE_M05_WOODLAND",
-}
-
 THEME_TEMPLATES = {
     "winter_ambush": [
         {
             "shot_type": "anchor_shot",
             "positive_prompt": (
                 "Back view of Finnish reservist wearing the reference hoodie "
+                "and a high-cut ballistic helmet with comms; "
                 "standing still, shoulders relaxed, face fully obscured "
-                "by hood and angle, harsh flash, M05 gear visible, back design "
-                "matches reference and may be partially occluded by gear"
+                "by hood and angle, harsh flash, back design matches reference"
             ),
             "composition_guidance": "Leave the upper-left quadrant empty.",
         },
@@ -120,7 +118,8 @@ THEME_TEMPLATES = {
                 "Front chest detail of the reference hoodie with the small "
                 "'POTERO STANDARD' embroidery visible on the left chest only "
                 "and matching the reference in size, color, and placement; high "
-                "ISO grain, harsh flash; M05 gear may appear in background only. "
+                "ISO grain, harsh flash; premium technical gear (Pouches, PALS webbing) "
+                "may appear in background only. "
                 "Crop: Neck-down only. No face."
             ),
             "composition_guidance": "Keep the top band clean.",
@@ -128,18 +127,18 @@ THEME_TEMPLATES = {
         {
             "shot_type": "tactical_action",
             "positive_prompt": (
-                "Back view, packing gear, tying boot laces or checking straps, "
-                "candid movement, face not visible, low angle, back of hoodie visible, back design "
-                "matches reference"
+                "Back view, packing premium Ranger Green gear, tying boot laces or checking "
+                "rugged Savotta-style straps, candid movement, face not visible, low angle, "
+                "back of hoodie visible, back design matches reference"
             ),
             "composition_guidance": "Leave the right third as negative space.",
         },
         {
             "shot_type": "gear_detail",
             "positive_prompt": (
-                "Back view while gloved hands adjust comms headset, fingers "
-                "natural, no face visible, harsh flash, back of hoodie visible, "
-                "back design matches reference"
+                "Back view while gloved hands adjust professional-grade comms headset on a "
+                "ballistic helmet, fingers natural, no face visible, harsh flash, "
+                "back of hoodie visible, back design matches reference"
             ),
             "composition_guidance": "Leave the top-left quadrant empty.",
         },
@@ -148,7 +147,57 @@ THEME_TEMPLATES = {
             "positive_prompt": (
                 "Static flat lay of the reference hoodie on snowy ground, "
                 "back side up and fully visible, solid color fabric, "
-                "M05 gear nearby, desaturated greens, back design matches reference"
+                "Ranger Green gear nearby, desaturated greens, back design matches reference"
+            ),
+            "composition_guidance": "Leave the upper-right quadrant empty.",
+        },
+    ],
+    "cqb_raid": [
+        {
+            "shot_type": "anchor_shot",
+            "positive_prompt": (
+                "Back view of Finnish reservist in a dimly lit OSB shooting house; "
+                "wearing the reference hoodie and a high-cut ballistic helmet; "
+                "standing still, facing a textured wall, face fully obscured, "
+                "harsh on-axis flash, back design matches reference"
+            ),
+            "composition_guidance": "Leave the upper-left quadrant empty.",
+        },
+        {
+            "shot_type": "close_up_texture",
+            "positive_prompt": (
+                "Front chest detail of the reference hoodie in a low-light indoor setting; "
+                "small 'POTERO STANDARD' embroidery visible on the left chest; "
+                "high ISO grain, harsh flash; tactical belt and IFAK visible in background. "
+                "Crop: Neck-down only. No face."
+            ),
+            "composition_guidance": "Keep the top band clean.",
+        },
+        {
+            "shot_type": "tactical_action",
+            "positive_prompt": (
+                "Dynamic movement in a CQB environment; Finnish reservist checking "
+                "a tactical battle belt, wearing the reference hoodie, "
+                "Ranger Green gear, harsh strobe-like lighting, motion blur in hands, "
+                "back of hoodie visible, back design matches reference"
+            ),
+            "composition_guidance": "Leave the right third as negative space.",
+        },
+        {
+            "shot_type": "gear_detail",
+            "positive_prompt": (
+                "Tight macro of a Ranger Green IFAK pouch and tourniquet on a battle belt; "
+                "hands mid-adjustment, wearing the reference hoodie, "
+                "industrial indoor background, heavy shadows, high contrast."
+            ),
+            "composition_guidance": "Leave the top-left quadrant empty.",
+        },
+        {
+            "shot_type": "final_brand_shot",
+            "positive_prompt": (
+                "Flat lay of the reference hoodie on an industrial concrete floor; "
+                "back side up, surrounded by spent brass casings and a tactical belt; "
+                "utilitarian messy aesthetic, harsh top-down flash."
             ),
             "composition_guidance": "Leave the upper-right quadrant empty.",
         },
@@ -372,7 +421,91 @@ class Planner:
                 "image_size": state.global_constraints.image_size,
             },
         )
-        return self._apply_front_back_rules(brief)
+        brief = self._apply_front_back_rules(brief)
+        return self._apply_potero_tunings(brief)
+
+    def _apply_potero_tunings(self, brief: SlideBrief) -> SlideBrief:
+        positive = brief.positive_prompt or ""
+        negative = brief.negative_prompt or ""
+
+        if brief.shot_type == "anchor_shot":
+            positive = _append_if_missing(
+                positive,
+                "Background stays dark; trees fall into black.",
+            )
+            positive = _append_if_missing(
+                positive,
+                "If snow is visible, it is subtle, flash-caught, irregular.",
+            )
+            # Anchor consistency: No torso gear on Slide 1 to prevent drift.
+            positive = _append_if_missing(
+                positive,
+                "No plate carrier or chest rig; hoodie fully visible on torso.",
+            )
+            negative = _append_if_missing(
+                negative,
+                "plate carrier, chest rig, tactical vest, torso armor",
+            )
+
+        if brief.shot_type == "close_up_texture":
+            positive = _append_if_missing(
+                positive,
+                "Embroidery threads are crisp and raised; stitching is real, not printed.",
+            )
+            positive = _append_if_missing(
+                positive,
+                "Letters are perfectly straight; no warped baseline.",
+            )
+            negative = _append_if_missing(
+                negative,
+                "crooked text, warped typography",
+            )
+
+        if brief.intent == "mobilization":
+            positive = _append_if_missing(
+                positive,
+                "Wear winter gloves; no bare hands.",
+            )
+            positive = _append_if_missing(
+                positive,
+                "Hands natural; no extra fingers or melted knuckles.",
+            )
+            positive = _append_if_missing(
+                positive,
+                "Gear looks used, not pristine.",
+            )
+            negative = _append_if_missing(
+                negative,
+                "bare hands",
+            )
+
+        if brief.shot_type == "gear_detail":
+            positive = _append_if_missing(
+                positive,
+                "Candid mid-adjustment, not a posed hero stance.",
+            )
+            positive = _append_if_missing(
+                positive,
+                "Slight motion blur in hands only (flash freeze with tiny blur).",
+            )
+
+        if brief.shot_type == "final_brand_shot":
+            positive = _append_if_missing(
+                positive,
+                "Utilitarian, not styled; small mess, scuffs, pine needles.",
+            )
+            negative = _append_if_missing(
+                negative,
+                "perfectly arranged flatlay, instagram styled, clean studio flatlay",
+            )
+
+        return update_model(
+            brief,
+            {
+                "positive_prompt": positive,
+                "negative_prompt": negative,
+            },
+        )
 
     def _infer_env_preset(self, theme: str) -> str:
         lowered = (theme or "").lower()
@@ -388,7 +521,7 @@ class Planner:
 
     def _infer_kit_anchors(self, prompt: str) -> List[str]:
         lowered = (prompt or "").lower()
-        anchors = [] # Removed M05_CAMO default
+        anchors = []
         if "rifle" in lowered or "weapon" in lowered:
             anchors.append("RK95_TP")
         if "backpack" in lowered or "pack" in lowered:
@@ -397,7 +530,7 @@ class Planner:
         if "plate carrier" in lowered or "carrier" in lowered or "rig" in lowered:
             anchors.append("RES_TAC_CARRIER")
         if "pouch" in lowered:
-            anchors.append("M05_BELT_DUMP_POUCH")
+            anchors.append("TACTICAL_BELT_POUCH")
         if "headset" in lowered or "comms" in lowered:
             anchors.append("COMTAC_HEADSET")
         if "helmet" in lowered:
@@ -416,16 +549,21 @@ class Planner:
     ) -> List[str]:
         roles: List[str] = []
         prompt = brief.positive_prompt or ""
+        is_front = self._is_front_shot(brief)
+        is_back = self._is_back_shot(brief)
+
+        def _front_back(front_role: str, back_role: str) -> List[str]:
+            if is_front:
+                return [front_role]
+            if is_back:
+                return [back_role]
+            return [front_role]
         env_role = ENV_ROLE_BY_PRESET.get(env_preset)
         if env_role:
             # Safety Compliance: Environment references also trigger blocks.
             # Rely on text description.
             pass
             # roles.append(env_role)
-        # M05 removed for Grey Man aesthetic
-        # m05_role = M05_ROLE_BY_PRESET.get(env_preset, "TEXTURE_M05_WOODLAND")
-        # roles.append(m05_role)
-
         if "RK95_TP" in kit_anchors or "rifle" in (prompt or "").lower():
             # Safety Compliance: Weapon reference images trigger model blocks.
             # Rely on text prompt (RK95_TP anchor) only.
@@ -433,19 +571,19 @@ class Planner:
             # roles.extend(["WEAPON_RK95_LEFT", "WEAPON_RK95_MUZZLE_CLOSE"])
         if "SAVOTTA_JAAKARI_34" in kit_anchors or "PALS_WEBBING" in kit_anchors:
             roles.extend(
-                [
-                    "GEAR_BACKPACK_JAAKARI_34",
-                    "GEAR_PALS_CLOSE",
-                    "GEAR_STRAPS_CONNECT",
-                ]
+                _front_back("GEAR_BACKPACK_FRONT", "GEAR_BACKPACK_BACK")
             )
+            roles.extend(["GEAR_PALS_CLOSE", "GEAR_STRAPS_CONNECT"])
         if "RES_TAC_CARRIER" in kit_anchors:
             roles.extend(
-                [
-                    "GEAR_PLATE_CARRIER_LAYOUT",
-                    "GEAR_POUCHES_DETAIL",
-                ]
+                _front_back("GEAR_PLATE_CARRIER_FRONT", "GEAR_PLATE_CARRIER_BACK")
             )
+            roles.append("GEAR_POUCHES_DETAIL")
+        if "TACTICAL_BELT_POUCH" in kit_anchors:
+            roles.extend(
+                _front_back("GEAR_BATTLE_BELT_FRONT", "GEAR_BATTLE_BELT_BACK")
+            )
+            roles.append("GEAR_BELT_DUMP_POUCH")
         if "COMTAC_HEADSET" in kit_anchors:
             roles.append("GEAR_HEADSET_COMTAC")
         if "PGD_HIGH_CUT" in kit_anchors:
@@ -587,16 +725,18 @@ Input:
     ) -> List[SlideBrief]:
         enriched: List[SlideBrief] = []
         for brief in briefs:
-            # Explicitly construct the prompt using internal constants
-            # This replaces the hidden text file injection from prompt_compiler
-            positive = (
-                f"{GLOBAL_STYLE_BLOCK} {DESIGN_INVARIANTS} {brief.positive_prompt}"
+            # Explicitly construct the prompt using internal blocks.
+            positive_parts = [
+                POTERO_SHADER_V1_2,
+                IDENTITY_LOCKS,
+                brief.positive_prompt,
+            ]
+            positive = "\n".join(
+                part for part in positive_parts if part
             ).strip()
             
             # Append metadata to prompt (formerly done by compiler)
             meta_parts = []
-            if brief.intent:
-                meta_parts.append(f"Intent: {brief.intent}.")
             if brief.continuum_cue:
                 meta_parts.append(f"Continuum cue: {brief.continuum_cue}.")
             if brief.env_preset:
@@ -615,7 +755,7 @@ Input:
             if meta_parts:
                 positive += "\n" + "\n".join(meta_parts)
 
-            negative = f"{brief.negative_prompt}, {NEGATIVE_CONSTRAINTS}".strip()
+            negative = f"{brief.negative_prompt}, {POTERO_NEGATIVE_V1_2}".strip()
             
             # Create updated brief
             # note: reference_assets will be refined later in graph, but we set initial here
@@ -652,12 +792,12 @@ Input:
                 index=slide.index,
                 shot_type="placeholder",
                 positive_prompt=(
-                    f"{GLOBAL_STYLE_BLOCK} Placeholder prompt for slide "
-                    f"{slide.index} of theme "
+                    f"{POTERO_SHADER_V1_2} {IDENTITY_LOCKS} "
+                    f"Placeholder prompt for slide {slide.index} of theme "
                     f"{state.global_constraints.environment}"
                 ),
                 negative_prompt=(
-                    f"unapproved text, face, watermark, {NEGATIVE_CONSTRAINTS}"
+                    f"unapproved text, face, watermark, {POTERO_NEGATIVE_V1_2}"
                 ),
                 reference_assets=reference_assets,
                 composition_guidance="Leave top-left quadrant empty for text.",
@@ -671,8 +811,6 @@ Input:
             return []
         assets: List[str] = []
         assets.extend(self.registry.get_global_assets())
-        # M05 swatches removed for Grey Man aesthetic
-        # assets.extend(self.registry.get_m05_swatches())
         assets.extend(self.registry.get_design_assets(design_id))
         return _unique_paths(assets)
 

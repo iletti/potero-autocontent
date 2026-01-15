@@ -32,13 +32,10 @@ def select_reference_assets(
     scored_assets, scores = _score_assets(role_assets)
 
     env_roles = [r for r in roles if r.startswith("ENV_")]
-    m05_roles = [r for r in roles if r.startswith("TEXTURE_M05")]
-
     _append_role_assets(scored_assets, env_roles, selected, used, limit=1)
-    _append_role_assets(scored_assets, m05_roles, selected, used, limit=1)
 
     for role in roles:
-        if role in env_roles or role in m05_roles:
+        if role in env_roles:
             continue
         _append_role_assets(scored_assets, [role], selected, used, limit=2)
 

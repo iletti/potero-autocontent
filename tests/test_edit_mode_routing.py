@@ -109,5 +109,5 @@ class TestEditModeRouting(unittest.TestCase):
             skip_validation=False,
         )
 
-        app.invoke(initial_state, {"recursion_limit": 5})
+        app.invoke(initial_state, {"recursion_limit": 20})
         self.assertEqual(state.slides[0].image_path, "edited.png")

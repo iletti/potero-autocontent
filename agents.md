@@ -21,7 +21,7 @@ This system generates 5-slide, 4:5 vertical image carousels for Potero using a *
 3. **OPSEC & Brand Integrity:**
 * **No Faces:** Anonymity is absolute.
 * **No In-Image Text:** Captions are post-production only, except the approved "POTERO STANDARD" embroidery that must exactly match the hoodie reference (size, color, placement) when the hoodie front is visible. Back shots may omit it.
-* **Finnish Realism:** Only M05 patterns and real-world Finnish Reservist kit silhouettes.
+* **Grey Man Realism:** Solid Ranger Green/Grey kit silhouettes only; no camouflage patterns.
 
 
 4. **Reasoning-First Generation:** We leverage **Gemini 3 Pro's** reasoning capabilities to "plan" the composition (lighting, negative space) before rendering pixels.
@@ -64,7 +64,7 @@ graph TD
 * **Theme Parsing:** Converts `theme_id` (e.g., "winter_ambush") into 5 distinct `SlideBriefs`.
 * **Asset Locking:** Selects one `design_id` (Hoodie) and locks it for the entire carousel.
 * **Prompt Compilation:** Injects locked Potero shader and negative blocks and compiles deterministic prompts.
-* **Reference Roles:** Infers role requirements (ENV/M05/kit) and attaches role-based packs via registry + golden packs.
+* **Reference Roles:** Infers role requirements (ENV/gear) and attaches role-based packs via registry + golden packs.
 * **Metadata:** Populates intent, env preset, lighting signature, risk profile, kit anchors, and image size/aspect.
 
 
@@ -92,13 +92,12 @@ graph TD
 * **Role:** The "Eye." Validates the output against strict Potero constraints.
 * **Model:** `gemini-1.5-pro` (Vision Mode)
 * **Methodology:** Visual Question Answering (VQA).
-* **Crop Critic:** Optional crop checks (budget gated) flag local defects for edit mode.
 * **Checklist (The "Kill List"):**
 1. **OPSEC Breach:** "Is a face or identifiable tattoo visible?" (If Yes -> **HARD FAIL**)
 2. **Brand Violation:** "Is there readable text, a logo, or a flag?" (If Yes -> **HARD FAIL**)
    - Exception: the approved "POTERO STANDARD" embroidery is allowed only if it matches the hoodie reference exactly when the front is visible. Back shots may omit it.
 3. **Anatomy:** "Zoom in on hands. Are there exactly 5 fingers? Are they holding the gear correctly?"
-4. **Kit Accuracy:** "Is the camo pattern Finnish M05? If it looks like generic US Woodland, reject."
+4. **Kit Accuracy:** "Is the gear solid Ranger Green/Grey with no camouflage patterns?"
 5. **Aesthetics:** "Is the lighting flat or glossy? We need harsh shadows and flash photography. If it looks like Midjourney artstation style, reject."
 
 
@@ -153,7 +152,7 @@ graph TD
       "index": 2,
       "status": "in_progress",
       "retry_count": 1,
-      "last_critic_feedback": "FAIL: Generic digital camo detected. Enforce M05."
+      "last_critic_feedback": "FAIL: Camo pattern detected. Enforce solid gear."
     }
   ]
 }
@@ -168,18 +167,18 @@ graph TD
   "positive_prompt": "Macro shot of hoodie fabric, water droplets beading, pine needle foreground...",
   "negative_prompt": "text, watermark, face, eyes, illustration, cartoon, bright sunlight",
   "reference_assets": [
-    "path/to/m05_swatch.png",
+    "path/to/solid_fabric_reference.png",
     "path/to/hoodie_013_macro.png",
     "path/to/slide_1_anchor.png" 
   ],
   "composition_guidance": "Leave top-left quadrant empty (negative space) for post-production typography.",
   "intent": "artifact_detail",
   "continuum_cue": "coffee ritual",
-  "kit_anchors": ["M05_CAMO"],
+  "kit_anchors": ["GREY_MAN_GEAR"],
   "env_preset": "taiga_winter_kaamos",
   "lighting_signature": "lofi_flash_on_axis_kaamos",
   "risk_profile": "low",
-  "reference_roles_required": ["ENV_TAIGA_WINTER_KAAMOS", "TEXTURE_M05_SNOW"],
+  "reference_roles_required": ["ENV_TAIGA_WINTER_KAAMOS", "DESIGN_FRONT"],
   "image_aspect": "4:5",
   "image_size": "2K"
 }
@@ -212,32 +211,31 @@ If retries are exhausted:
 ## 6. Prompt Invariants (Immutable Blocks)
 
 **Locked Potero Shader** (loaded from `assets/potero/potero_shader_v1_1.txt`):
-Prepended to every positive prompt by the prompt compiler.
+Prepended to every positive prompt by the planner.
 
 **Locked Potero Negative** (loaded from `assets/potero/potero_negative_v1_1.txt`):
-Prepended to every negative prompt by the prompt compiler.
+Prepended to every negative prompt by the planner.
 
 ---
 
 ## 7. Implementation Status
 
 Implemented in this repo:
-1. Versioned Potero shader/negative assets and prompt compiler.
+1. Versioned Potero shader/negative assets and planner invariants.
 2. Role-based reference selection with golden packs and quality scoring.
 3. Preflight drift checks and kit consistency compiler.
 4. Critic v2 schema (OPSEC + Potero scoring + repair hints).
 5. ArtistEdit path and edit-mode routing.
 6. Potero-safe fallbacks and Slide 1 candidate pool.
-7. Budget enforcement for candidate scoring and crop checks.
+7. Budget enforcement for candidate scoring.
 
 ---
 
 ## 8. Production Readiness Review (Current Gaps)
 
-1. **Crop critic placeholder:** Crop critic currently reuses full-image VQA rather than true crop/bbox checks.
-2. **Reference quality scoring depth:** Quality scoring uses file size and optional resolution; no watermark/sharpness scoring yet.
-3. **Optional deps in CI:** Tests that require `langgraph` and `google-genai` are skipped if deps are missing.
-4. **Config contract:** No `.env.example` is present; env var list is documented but not templated.
+1. **Reference quality scoring depth:** Quality scoring uses file size and optional resolution; no watermark/sharpness scoring yet.
+2. **Optional deps in CI:** Tests that require `langgraph` and `google-genai` are skipped if deps are missing.
+3. **Config contract:** No `.env.example` is present; env var list is documented but not templated.
 
 ---
 
@@ -248,8 +246,6 @@ Place all "Gold" reference assets under `assets/references/` and keep a stable n
 ```
 assets/references/
   manifest.json
-  m05/
-    m05_swatch.png
   hoodies/
     hoodie_013_ranger_green_front.png
     hoodie_013_ranger_green_macro.png
@@ -260,15 +256,14 @@ Update `assets/references/manifest.json` to register assets with `path`, `role`,
 Example manifest entry:
 ```
 {
-  "path": "m05/m05_swatch.jpg",
-  "role": "TEXTURE_M05_WOODLAND",
-  "tags": ["m05", "woodland"]
+  "path": "hoodies/hoodie_013_ranger_green_front.png",
+  "role": "DESIGN_FRONT",
+  "tags": ["front", "hoodie"]
 }
 ```
 
 When `POTERO_REQUIRE_ASSETS=true`, the manifest must include:
 
-- At least one `m05_swatches` entry
 - At least one asset for the selected `design_id`
 
 Required env vars (names only):

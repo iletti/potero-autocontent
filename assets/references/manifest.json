@@ -101,22 +101,6 @@
       ]
     },
     {
-      "path": "TEXTURE_M05_WOODLAND/m05_woodland_01.webp",
-      "role": "TEXTURE_M05_WOODLAND",
-      "tags": [
-        "m05",
-        "woodland"
-      ]
-    },
-    {
-      "path": "TEXTURE_M05_SNOW/m05_snow_01.webp",
-      "role": "TEXTURE_M05_SNOW",
-      "tags": [
-        "m05",
-        "snow"
-      ]
-    },
-    {
       "path": "WEAPON_RK95_LEFT/rk95_left_01.webp",
       "role": "WEAPON_RK95_LEFT",
       "tags": [
@@ -157,11 +141,19 @@
       ]
     },
     {
-      "path": "GEAR_PLATE_CARRIER_LAYOUT/plate_carrier_layout_01.jpg",
-      "role": "GEAR_PLATE_CARRIER_LAYOUT",
+      "path": "GEAR_PLATE_CARRIER_FRONT/plate_carrier_front_01.jpg",
+      "role": "GEAR_PLATE_CARRIER_FRONT",
       "tags": [
         "carrier",
-        "layout"
+        "front"
+      ]
+    },
+    {
+      "path": "GEAR_PLATE_CARRIER_BACK/plate_carrier_back_01.png",
+      "role": "GEAR_PLATE_CARRIER_BACK",
+      "tags": [
+        "carrier",
+        "back"
       ]
     },
     {
@@ -182,10 +174,18 @@
     },
     {
       "path": "GEAR_BACKPACK_JAAKARI_34/jaakari_34_01.jpg",
-      "role": "GEAR_BACKPACK_JAAKARI_34",
+      "role": "GEAR_BACKPACK_FRONT",
       "tags": [
         "savotta",
-        "jaakari"
+        "front"
+      ]
+    },
+    {
+      "path": "GEAR_BACKPACK_JAAKARI_34/jaakari_34_01.jpg",
+      "role": "GEAR_BACKPACK_BACK",
+      "tags": [
+        "savotta",
+        "back"
       ]
     },
     {
@@ -307,16 +307,6 @@
         "ifak",
         "cat",
         "detail"
-      ]
-    }
-  ],
-  "m05_swatches": [
-    {
-      "path": "m05/m05_swatch.jpg",
-      "role": "TEXTURE_M05_WOODLAND",
-      "tags": [
-        "m05",
-        "woodland"
       ]
     }
   ],
