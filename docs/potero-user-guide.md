@@ -10,7 +10,24 @@ Provide high-quality reference images in the correct roles (folders/tags) so the
 
 ---
 
-## 2) What you must provide (minimum reliable kit)
+## 2) Currently Installed Assets
+
+You can run the application right now using these validated Theme IDs and Design IDs.
+
+### A) Validated Themes (`--theme`)
+*   `winter_ambush`: Finnish winter taiga with kaamos lighting. Focuses on field maintenance and ritual.
+*   `cqb_raid`: Indoor OSB shoothouse environment. High contrast, technical focus.
+*   `brutalist_shelter`: [NEW] Cold, raw concrete civil defense shelter. Brutalist aesthetic, heavy shadows.
+*   `night_patrol`: (Default/Fallback) Summer taiga night environment.
+
+### B) Validated Hoodie Designs (`--design`)
+*   `reaper_military_green`: [NEW] Detailed grim reaper with rose design on Ranger Green fabric.
+*   `reaper_vintage_black`: [NEW] Detailed grim reaper design on Vintage Black fabric.
+*   `rk_hoodie`: Standard RK-95 silhouette design on black fabric.
+
+---
+
+## 3) What you must provide (minimum reliable kit)
 
 ### A) Mandatory references (every project)
 
@@ -118,9 +135,31 @@ If you are using Shopify MCP instead, the system can fetch product images automa
 - lo-fi flash refs
 - solid fabric refs (Ranger Green/Grey, no camo)
 
+### E) Reference Library Strategy (Variety vs. Minimal)
+
+The library is a **filtering and ranking system**. You can add many images to increase variety, but follow these rules of thumb:
+
+*   **Contextual Variety is King:** Add different angles (front, 3/4, profile) and different lighting conditions. This helps the AI understand the 3D form.
+*   **Threshold of Quality:** The system automatically ranks your images. A few high-res (2K+) images will always beat dozens of low-res screenshots.
+*   **The "Sweet Spot":**
+    *   **Environments:** 3–8 images (provides enough variety for 5 slides).
+    *   **Hardware/Gear:** 2–4 images (front, back, and a specific detail close-up).
+    *   **Hoodie Designs:** 2–4 images (front, back, side).
+
 ---
 
-## 4) Reference quality rules (do not ignore these)
+## 4) How the Selection Engine Works (Under the Hood)
+
+You don't need to manually pick images for each slide; the app does it using a four-step pipeline:
+
+1.  **Role Filtering:** For each slide, the **Planner** determines the required role (e.g., `DESIGN_BACK` for Slide 1). It ignores all other images in your library.
+2.  **Technical Scoring:** The **Reference Selector** scans the matching images and assigns a score based on resolution, file size, and format.
+3.  **Ranking:** It sorts the images from highest to lowest score.
+4.  **The "Hard Cap":** To keep the AI focused, the app only sends the **Top 1 or 2** highest-scoring images for that specific role.
+
+---
+
+## 5) Reference quality rules (do not ignore these)
 
 Must-haves
 - resolution: preferably 1500px+ on the long edge

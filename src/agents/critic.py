@@ -44,15 +44,13 @@ class Critic:
             "Is a face visible?",
             "Is the hoodie front-facing (chest visible) or back-facing?",
             (
-                "If front-facing: Is the 'POTERO STANDARD' embroidery verifiable on the left chest "
-                "(even if small or partially occluded)? Is it verifiably NOT a mismatch? "
-                "(Identify if it is missing or clearly wrong design. "
-                "Ignore if back-facing)."
+                "If front-facing: Is the 'POTERO STANDARD' embroidery verifiable on the left chest? "
+                "Does the branding COLOR match the reference exactly (e.g., if ref is black, stay black)?"
             ),
 
             (
-                "Are there any text/logos that clearly contradict the reference images? "
-                "(Brands visible on gear in the references are ALLOWED)."
+                "Are there any text/logos that contradict the references in design or color? "
+                "The back graphic must match the reference color (usually white) and the front must match (usually black)."
             ),
 
         ]

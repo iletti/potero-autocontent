@@ -202,6 +202,54 @@ THEME_TEMPLATES = {
             "composition_guidance": "Leave the upper-right quadrant empty.",
         },
     ],
+    "brutalist_shelter": [
+        {
+            "shot_type": "anchor_shot",
+            "positive_prompt": (
+                "Back view of Finnish reservist in a cold, brutalist concrete civil defense shelter; "
+                "wearing the reference hoodie; standing against a massive ribbed concrete wall; "
+                "harsh on-axis flash, crushing shadows, back design matches reference"
+            ),
+            "composition_guidance": "Leave the upper-left quadrant empty.",
+        },
+        {
+            "shot_type": "close_up_texture",
+            "positive_prompt": (
+                "Front chest detail of the reference hoodie; 'POTERO STANDARD' embroidery "
+                "crisp against the Ranger Green fabric; background is a blurred "
+                "brutalist concrete pillar; harsh flash, high ISO noise. "
+                "Crop: Neck-down only. No face."
+            ),
+            "composition_guidance": "Keep the top band clean.",
+        },
+        {
+            "shot_type": "tactical_action",
+            "positive_prompt": (
+                "Back view, Finnish reservist checking tactical straps while sitting on a "
+                "concrete ledge; brutalist architecture in background, heavy shadows, "
+                "utilitarian feel, back of hoodie visible, back design matches reference"
+            ),
+            "composition_guidance": "Leave the right third as negative space.",
+        },
+        {
+            "shot_type": "gear_detail",
+            "positive_prompt": (
+                "Macro focus on technical gear details (Cordura, hardware) against a "
+                "raw concrete background; hands mid-adjustment, wearing the reference hoodie, "
+                "low light, intense highlights from flash."
+            ),
+            "composition_guidance": "Leave the top-left quadrant empty.",
+        },
+        {
+            "shot_type": "final_brand_shot",
+            "positive_prompt": (
+                "Flat lay of the reference hoodie on a cold concrete floor of a "
+                "brutalist shelter; back side up, surrounded by a rustic metal cup "
+                "and tactical belt; high contrast, harsh top-down lighting."
+            ),
+            "composition_guidance": "Leave the upper-right quadrant empty.",
+        },
+    ],
 }
 
 class Planner:
@@ -431,11 +479,7 @@ class Planner:
         if brief.shot_type == "anchor_shot":
             positive = _append_if_missing(
                 positive,
-                "Background stays dark; trees fall into black.",
-            )
-            positive = _append_if_missing(
-                positive,
-                "If snow is visible, it is subtle, flash-caught, irregular.",
+                "Background stays dark; deep shadows behind subject.",
             )
             # Anchor consistency: No torso gear on Slide 1 to prevent drift.
             positive = _append_if_missing(
@@ -454,7 +498,7 @@ class Planner:
             )
             positive = _append_if_missing(
                 positive,
-                "Letters are perfectly straight; no warped baseline.",
+                "Letters are perfectly straight; color matches the reference exactly (e.g., black threads stay black).",
             )
             negative = _append_if_missing(
                 negative,
@@ -464,7 +508,7 @@ class Planner:
         if brief.intent == "mobilization":
             positive = _append_if_missing(
                 positive,
-                "Wear winter gloves; no bare hands.",
+                "Wear tactical gloves; no bare hands.",
             )
             positive = _append_if_missing(
                 positive,

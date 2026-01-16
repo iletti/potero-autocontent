@@ -273,7 +273,7 @@
       ]
     },
     {
-      "path": "GEAR_BATTLE_BELT_FRONT/battle_belt_front_01.png",
+      "path": "GEAR_BATTLE_BELT_FRONT/battle_belt_front_01.webp",
       "role": "GEAR_BATTLE_BELT_FRONT",
       "tags": [
         "belt",
@@ -282,7 +282,7 @@
       ]
     },
     {
-      "path": "GEAR_BATTLE_BELT_BACK/battle_belt_back_01.png",
+      "path": "GEAR_BATTLE_BELT_BACK/battle_belt_back_01.webp",
       "role": "GEAR_BATTLE_BELT_BACK",
       "tags": [
         "belt",
@@ -331,6 +331,70 @@
         "role": "DESIGN_SIDE",
         "tags": [
           "side"
+        ]
+      }
+    ],
+    "reaper_military_green": [
+      {
+        "path": "hoodies/reaper_military_green_front.png",
+        "role": "DESIGN_FRONT",
+        "tags": [
+          "front"
+        ]
+      },
+      {
+        "path": "hoodies/reaper_military_green_back.png",
+        "role": "DESIGN_BACK",
+        "tags": [
+          "back"
+        ]
+      },
+      {
+        "path": "hoodies/reaper_military_green_left.png",
+        "role": "DESIGN_SIDE",
+        "tags": [
+          "side",
+          "left"
+        ]
+      },
+      {
+        "path": "hoodies/reaper_military_green_right.png",
+        "role": "DESIGN_SIDE",
+        "tags": [
+          "side",
+          "right"
+        ]
+      }
+    ],
+    "reaper_vintage_black": [
+      {
+        "path": "hoodies/reaper_vintage_black_front.png",
+        "role": "DESIGN_FRONT",
+        "tags": [
+          "front"
+        ]
+      },
+      {
+        "path": "hoodies/reaper_vintage_black_back.png",
+        "role": "DESIGN_BACK",
+        "tags": [
+          "back"
+        ]
+      },
+      {
+        "path": "hoodies/reaper_vintage_black_left.png",
+        "role": "DESIGN_SIDE",
+        "tags": [
+          "side",
+          "left"
+        ]
+      },
+      {
+        "path": "hoodies/reaper_vintage_black_right.png",
+        "role": "DESIGN_SIDE",
+        "tags": [
+          "side",
+          "right"
         ]
       }
     ]
