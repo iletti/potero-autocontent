@@ -12,6 +12,7 @@ except ImportError:  # pragma: no cover - optional dependency
 from src.state import SlideBrief
 from src.upload_cache import UploadCache
 from src.interaction_logger import InteractionLogger
+from src.image_utils import ensure_unique_path, infer_image_extension
 
 class Artist:
     def __init__(
@@ -94,6 +95,8 @@ class Artist:
                             contents=contents,
                         )
                     image_bytes, file_ext = self._extract_image_bytes(response)
+                if image_bytes:
+                    file_ext = infer_image_extension(image_bytes, file_ext)
                 if not image_bytes:
                     # Try to extract text to see if it was a refusal
                     text_response = "No text returned"
@@ -125,7 +128,7 @@ class Artist:
                     continue
 
                 filename = f"slide_{brief.index}{suffix or ''}.{file_ext}"
-                output_path = self.output_dir / filename
+                output_path = ensure_unique_path(self.output_dir / filename)
                 output_path.write_bytes(image_bytes)
                 if self.interaction_logger:
                     prompt_to_log = contents if not self._is_imagen_model(model) else prompt

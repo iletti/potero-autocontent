@@ -13,6 +13,7 @@ from src.state import SlideBrief
 from src.state import SlideBrief
 from src.upload_cache import UploadCache
 from src.interaction_logger import InteractionLogger
+from src.image_utils import ensure_unique_path, infer_image_extension
 
 
 class ArtistEdit:
@@ -76,6 +77,8 @@ class ArtistEdit:
             raise e
 
         image_bytes, file_ext = self._extract_image_bytes(response)
+        if image_bytes:
+            file_ext = infer_image_extension(image_bytes, file_ext)
         if not image_bytes:
             # Try to extract text to see if it was a refusal
             text_response = "No text returned"
@@ -105,7 +108,7 @@ class ArtistEdit:
             raise ValueError(f"No image returned from edit call. Response: {text_response[:200]}")
 
         filename = f"slide_{brief.index}_edit.{file_ext}"
-        output_path = self.output_dir / filename
+        output_path = ensure_unique_path(self.output_dir / filename)
         output_path.write_bytes(image_bytes)
 
         if self.interaction_logger:

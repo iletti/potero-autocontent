@@ -41,6 +41,7 @@ class TestReferenceSelector(unittest.TestCase):
                 registry,
                 max_refs=1,
                 hard_cap=2,
+                design_id="hoodie",
                 assets_dir=Path(tmpdir),
             )
             self.assertLessEqual(len(selected), 1)

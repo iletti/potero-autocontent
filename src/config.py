@@ -49,6 +49,18 @@ class AppConfig:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
 
+DEFAULT_SHADER_VERSION = "v1_2"
+
+
+def _normalize_shader_version(value: Optional[str]) -> str:
+    raw = (value or DEFAULT_SHADER_VERSION).strip().lower()
+    if raw == "v1_1":
+        return DEFAULT_SHADER_VERSION
+    if raw == DEFAULT_SHADER_VERSION:
+        return raw
+    return DEFAULT_SHADER_VERSION
+
+
 def _parse_bool(value: Optional[str], default: bool) -> bool:
     if value is None:
         return default
@@ -77,7 +89,9 @@ def load_config() -> AppConfig:
     run_id = os.getenv("POTERO_RUN_ID") or uuid.uuid4().hex
     theme_id = os.getenv("POTERO_THEME_ID")
     design_id = os.getenv("POTERO_DESIGN_ID")
-    potero_shader_version = os.getenv("POTERO_SHADER_VERSION", "v1_1").strip()
+    potero_shader_version = _normalize_shader_version(
+        os.getenv("POTERO_SHADER_VERSION", DEFAULT_SHADER_VERSION)
+    )
     potero_image_aspect = os.getenv("POTERO_IMAGE_ASPECT", "4:5").strip()
     potero_image_size = os.getenv("POTERO_IMAGE_SIZE", "2K").strip()
     potero_allow_warn_pass = _parse_bool(

@@ -12,7 +12,9 @@ except ImportError:  # pragma: no cover - optional dependency
 from src.budget import can_consume, consume
 from src.state import CarouselState, SlideBrief
 from src.model_utils import update_model
-from src.agents.planner import Planner
+from src.critic_assets import select_critic_reference_assets
+from src.image_utils import read_image_dimensions
+from src.agents.planner import Planner, POTERO_NEGATIVE_V1_2, POTERO_SHADER_V1_2
 from src.reference_selector import select_reference_assets
 from src.kit_compiler import apply_kit_consistency
 from src.preflight import apply_brand_drift_preflight, apply_style_tighten
@@ -76,11 +78,16 @@ def build_fallback_brief(
         },
     ]
     template = fallback_templates[(index - 1) % len(fallback_templates)]
+    positive_prompt = (
+        f"{POTERO_SHADER_V1_2}\n"
+        f"{template['positive_prompt']} Environment: {environment}."
+    ).strip()
+    negative_prompt = f"{template['negative_prompt']}, {POTERO_NEGATIVE_V1_2}".strip()
     return SlideBrief(
         index=index,
         shot_type=template["shot_type"],
-        positive_prompt=f"{template['positive_prompt']} Environment: {environment}.",
-        negative_prompt=template["negative_prompt"],
+        positive_prompt=positive_prompt,
+        negative_prompt=negative_prompt,
         reference_assets=[],
         composition_guidance=template["composition_guidance"],
         potero_shader_version=potero_shader_version,
@@ -148,6 +155,9 @@ def create_graph(
         if current_slide.status == "completed" and current_slide.image_path:
             image_path = Path(current_slide.image_path)
             if image_path.exists():
+                dims = read_image_dimensions(image_path)
+                if dims:
+                    current_slide.image_width, current_slide.image_height = dims
                 logger.info(
                     "artist_skip_completed",
                     extra={"slide_index": current_idx + 1},
@@ -185,7 +195,7 @@ def create_graph(
                 registry=planner.registry,
                 max_refs=carousel.global_constraints.max_refs_per_call,
                 hard_cap=carousel.global_constraints.max_refs_hard,
-                anchor_path=anchor_path,
+                design_id=carousel.global_constraints.design_id_locked,
                 assets_dir=planner.potero_assets_dir,
             )
             
@@ -195,12 +205,20 @@ def create_graph(
             for role, paths in role_map.items():
                 for path in paths:
                     asset_map[path] = role
+            selected_roles = sorted(
+                {
+                    asset_map.get(asset)
+                    for asset in reference_assets
+                    if asset_map.get(asset)
+                }
+            )
             
             brief = update_model(
                 brief,
                 {
                     "reference_assets": reference_assets,
                     "asset_role_map": asset_map,
+                    "reference_roles_selected": selected_roles,
                 },
             )
             state["briefs"][current_idx] = brief
@@ -251,7 +269,10 @@ def create_graph(
                     available_critic -= 1
                     candidate_result = critic.validate_image(
                         candidate_path,
-                        reference_assets=brief.reference_assets,
+                        reference_assets=select_critic_reference_assets(
+                            brief.reference_assets,
+                            brief.asset_role_map,
+                        ),
                     )
                     score = candidate_result.get("qa_score") or 0
                     if candidate_result.get("opsec_pass") is False:
@@ -283,6 +304,9 @@ def create_graph(
                 "skip_validation": True,
             }
         current_slide.image_path = image_path
+        dims = read_image_dimensions(Path(image_path))
+        if dims:
+            current_slide.image_width, current_slide.image_height = dims
         current_slide.status = "in_progress"
 
         persist_state(carousel, state["briefs"])
@@ -362,7 +386,10 @@ def create_graph(
         brief = state["briefs"][current_idx]
         result = critic.validate_image(
             image_path,
-            reference_assets=brief.reference_assets,
+            reference_assets=select_critic_reference_assets(
+                brief.reference_assets,
+                brief.asset_role_map,
+            ),
         )
         if result.get("fatal"):
             carousel.budget.exceeded = True
@@ -524,6 +551,9 @@ def create_graph(
                 "skip_validation": True,
             }
         carousel.slides[current_idx].image_path = edited_path
+        dims = read_image_dimensions(Path(edited_path))
+        if dims:
+            carousel.slides[current_idx].image_width, carousel.slides[current_idx].image_height = dims
         carousel.slides[current_idx].status = "in_progress"
         persist_state(carousel, state["briefs"])
         return {"carousel_state": carousel, "skip_validation": False}
@@ -549,11 +579,20 @@ def create_graph(
         )
 
         briefs = list(state["briefs"])
-        briefs[current_idx] = build_fallback_brief(
+        fallback_brief = build_fallback_brief(
             briefs[current_idx].index,
             carousel.global_constraints.environment,
             carousel.global_constraints.potero_shader_version,
         )
+        fallback_brief = apply_kit_consistency(
+            fallback_brief,
+            planner.registry if planner else None,
+        )
+        fallback_brief, _ = apply_brand_drift_preflight(
+            fallback_brief,
+            carousel.global_constraints.environment,
+        )
+        briefs[current_idx] = fallback_brief
         carousel.slides[current_idx].status = "fallback_pending"
         persist_state(carousel, briefs)
         return {

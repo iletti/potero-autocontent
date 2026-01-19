@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 def verify_manifest():
-    root = Path("/Users/ilarischmidt/projects/potero-autocontent/assets/references")
+    root = Path(__file__).resolve().parents[1] / "assets" / "references"
     manifest_path = root / "manifest.json"
     
     if not manifest_path.exists():

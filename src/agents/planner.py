@@ -640,22 +640,49 @@ class Planner:
             return ["DESIGN_FRONT"]
         if self._is_back_shot(brief):
             return ["DESIGN_BACK"]
+        if brief.shot_type == "gear_detail":
+            return ["DESIGN_FRONT"]
         return ["DESIGN_SIDE"]
 
     def _apply_front_back_rules(self, brief: SlideBrief) -> SlideBrief:
         prompt = brief.positive_prompt or ""
-        if self._is_front_shot(brief):
+        negative = brief.negative_prompt or ""
+        is_front = self._is_front_shot(brief)
+        is_back = self._is_back_shot(brief)
+        has_design_front = "DESIGN_FRONT" in (brief.reference_roles_required or [])
+        if is_front or has_design_front:
             # Only mention the specific embroidery for front shots
             prompt = _append_if_missing(
                 prompt,
                 "Show the 'POTERO STANDARD' embroidery on the left chest, matching the reference."
             )
-        elif self._is_back_shot(brief):
+        else:
+            if is_back:
+                prompt = _append_if_missing(
+                    prompt,
+                    "Back view only. Back design matches reference."
+                )
             prompt = _append_if_missing(
                 prompt,
-                "Back view only. Back design matches reference."
+                "Avoid front chest view; no front embroidery visible.",
             )
-        return update_model(brief, {"positive_prompt": prompt})
+            negative = _append_if_missing(
+                negative,
+                "front chest, chest embroidery, chest text",
+            )
+        if brief.shot_type == "gear_detail" and not (is_front or has_design_front):
+            prompt = _append_if_missing(
+                prompt,
+                "Frame gear and hands; keep hoodie chest out of frame.",
+            )
+            negative = _append_if_missing(
+                negative,
+                "front logo",
+            )
+        return update_model(
+            brief,
+            {"positive_prompt": prompt, "negative_prompt": negative},
+        )
 
     def _is_front_shot(self, brief: SlideBrief) -> bool:
         text = _normalize_text(f"{brief.shot_type} {brief.positive_prompt}")

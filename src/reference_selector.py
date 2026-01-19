@@ -12,7 +12,7 @@ def select_reference_assets(
     registry: AssetRegistry,
     max_refs: int,
     hard_cap: int,
-    anchor_path: Optional[str] = None,
+    design_id: Optional[str] = None,
     assets_dir: Optional[Path] = None,
 ) -> tuple[List[str], Dict[str, List[str]], Dict[str, float]]:
     roles = _normalize_roles(brief.reference_roles_required)
@@ -24,7 +24,7 @@ def select_reference_assets(
     selected: List[str] = []
     used = set()
 
-    role_assets = registry.get_assets_by_role(roles)
+    role_assets = registry.get_assets_by_role(roles, design_id=design_id)
     role_assets = {
         role: _filter_supported_assets(paths)
         for role, paths in role_assets.items()
@@ -38,9 +38,6 @@ def select_reference_assets(
         if role in env_roles:
             continue
         _append_role_assets(scored_assets, [role], selected, used, limit=2)
-
-    if anchor_path:
-        selected.insert(0, anchor_path)
 
     if len(selected) > hard_cap:
         selected = selected[:hard_cap]

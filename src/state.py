@@ -19,7 +19,7 @@ class GlobalConstraints(BaseModel):
     design_id_locked: str
     environment: str
     aspect_ratio: str = "4:5"
-    potero_shader_version: str = "v1_1"
+    potero_shader_version: str = "v1_2"
     image_aspect: str = "4:5"
     image_size: str = "2K"
     allow_warn_pass: bool = False
@@ -34,6 +34,8 @@ class SlideState(BaseModel):
     index: int
     status: str = "pending" # pending, in_progress, completed, failed, fallback_pending
     image_path: Optional[str] = None
+    image_width: Optional[int] = None
+    image_height: Optional[int] = None
     qa_score: Optional[int] = None
     qa_status: Optional[str] = None # pass, warn, fail
     retry_count: int = 0
@@ -60,7 +62,7 @@ class SlideBrief(BaseModel):
     negative_prompt: str
     reference_assets: List[str]
     composition_guidance: Optional[str] = None
-    potero_shader_version: str = "v1_1"
+    potero_shader_version: str = "v1_2"
     intent: Optional[str] = None
     continuum_cue: Optional[str] = None
     kit_anchors: List[str] = Field(default_factory=list)
@@ -68,6 +70,7 @@ class SlideBrief(BaseModel):
     lighting_signature: Optional[str] = None
     risk_profile: Optional[str] = None
     reference_roles_required: List[str] = Field(default_factory=list)
+    reference_roles_selected: List[str] = Field(default_factory=list)
     asset_role_map: Dict[str, str] = Field(default_factory=dict)
     image_aspect: Optional[str] = None
     image_size: Optional[str] = None

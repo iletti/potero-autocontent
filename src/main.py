@@ -129,7 +129,10 @@ def main():
     if not client:
         logger.error("missing_genai_client")
         return
-    upload_cache = UploadCache(client=client)
+    upload_cache = UploadCache(
+        client=client,
+        cache_path=storage.run_dir / "upload_cache.json",
+    )
 
     # Initialize components
     planner = Planner(

@@ -100,14 +100,18 @@ class AssetRegistry:
             return []
         return self._resolve_list(self._extract_paths(entry))
 
-    def get_assets_by_role(self, roles: List[str]) -> Dict[str, List[str]]:
+    def get_assets_by_role(
+        self,
+        roles: List[str],
+        design_id: Optional[str] = None,
+    ) -> Dict[str, List[str]]:
         if not roles:
             return {}
         requested = {role for role in roles if role}
         if not requested:
             return {}
         matches = {role: [] for role in requested}
-        for record in self._collect_records():
+        for record in self._collect_records_for_design(design_id):
             if record.role in requested:
                 rel_path = self._ensure_relative(record.path)
                 matches[record.role].append(
@@ -124,6 +128,26 @@ class AssetRegistry:
         if isinstance(designs, dict):
             for entry in designs.values():
                 records.extend(self._extract_records(entry))
+        return records
+
+    def _collect_records_for_design(
+        self,
+        design_id: Optional[str],
+    ) -> List[AssetRecord]:
+        records: List[AssetRecord] = []
+        records.extend(
+            self._extract_records(self.manifest.get("global_references", []))
+        )
+        designs = self.manifest.get("designs", {})
+        if not isinstance(designs, dict):
+            return records
+        if design_id:
+            entry = designs.get(design_id)
+            if entry is not None:
+                records.extend(self._extract_records(entry))
+            return records
+        for entry in designs.values():
+            records.extend(self._extract_records(entry))
         return records
 
     def _resolve_list(self, paths: List[str]) -> List[str]:

@@ -13,7 +13,7 @@ class TemplatePlanner(Planner):
         self.registry = None
         self.logger = logging.getLogger(__name__)
         self.planner_mode = planner_mode
-        self.potero_shader_version = "v1_1"
+        self.potero_shader_version = "v1_2"
         self.potero_image_aspect = "4:5"
         self.potero_image_size = "2K"
         self.potero_allow_warn_pass = False
@@ -73,6 +73,21 @@ class TestPlannerTemplates(unittest.TestCase):
             prompt = briefs[idx].positive_prompt.lower()
             self.assertIn("back view", prompt)
             self.assertIn("back design matches reference", prompt)
+
+    def test_non_front_shots_avoid_front_chest(self):
+        planner = TemplatePlanner()
+        state = self._build_state("winter_ambush")
+        briefs = planner.generate_briefs(state)
+        for idx in (0, 2, 4):
+            negative = briefs[idx].negative_prompt.lower()
+            self.assertIn("front chest", negative)
+
+    def test_gear_detail_defaults_to_front_design(self):
+        planner = TemplatePlanner()
+        state = self._build_state("cqb_raid")
+        briefs = planner.generate_briefs(state)
+        gear_brief = briefs[3]
+        self.assertIn("DESIGN_FRONT", gear_brief.reference_roles_required)
 
     def test_composition_guidance_has_no_text_mentions(self):
         planner = TemplatePlanner()

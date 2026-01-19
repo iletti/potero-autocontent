@@ -29,16 +29,24 @@ class TestAssetRegistry(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             references = Path(tmpdir) / "references"
             (references / "hoodies").mkdir(parents=True)
+            (references / "env").mkdir(parents=True)
 
             hoodie = references / "hoodies" / "h.png"
             hoodie.write_text("x")
+            hoodie_alt = references / "hoodies" / "h2.png"
+            hoodie_alt.write_text("x")
+            env = references / "env" / "e.png"
+            env.write_text("x")
 
             manifest = {
-                "global_references": [],
+                "global_references": [{"path": "env/e.png", "role": "ENV_TEST"}],
                 "designs": {
                     "hoodie_013": [
                         {"path": "hoodies/h.png", "role": "DESIGN_FRONT"}
-                    ]
+                    ],
+                    "hoodie_014": [
+                        {"path": "hoodies/h2.png", "role": "DESIGN_FRONT"}
+                    ],
                 },
             }
             self._write_manifest(references, manifest)
@@ -48,6 +56,12 @@ class TestAssetRegistry(unittest.TestCase):
                 registry.get_design_assets("hoodie_013"),
                 [str(hoodie)],
             )
+            assets_by_role = registry.get_assets_by_role(
+                ["DESIGN_FRONT", "ENV_TEST"],
+                design_id="hoodie_013",
+            )
+            self.assertEqual(assets_by_role["DESIGN_FRONT"], [str(hoodie)])
+            self.assertEqual(assets_by_role["ENV_TEST"], [str(env)])
 
     def test_validate_required_errors_on_empty(self):
         with tempfile.TemporaryDirectory() as tmpdir:

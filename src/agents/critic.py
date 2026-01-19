@@ -226,7 +226,7 @@ Return strict JSON only in this format:
         violations = result.get("violations") or []
         opsec_violations = result.get("opsec_violations") or []
         combined = list(violations) + list(opsec_violations)
-        hard_fail = {
+        hard_fail_markers = {
             "face",
             "tattoo",
             "flag",
@@ -234,7 +234,7 @@ Return strict JSON only in this format:
             "camo_mismatch",
             "camo_on_hoodie",
         }
-        if any(str(v).lower() in hard_fail for v in combined):
+        if _contains_marker(combined, hard_fail_markers):
             result["pass"] = False
             if result.get("qa_score") is not None:
                 result["qa_score"] = min(result.get("qa_score", 0), 10)
@@ -363,3 +363,12 @@ def _coerce_list(value: Any) -> List[str]:
     if isinstance(value, list):
         return [str(item) for item in value]
     return []
+
+
+def _contains_marker(values: List[str], markers: set[str]) -> bool:
+    for value in values:
+        lowered = str(value).lower()
+        for marker in markers:
+            if marker in lowered:
+                return True
+    return False
