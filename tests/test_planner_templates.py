@@ -88,6 +88,7 @@ class TestPlannerTemplates(unittest.TestCase):
         briefs = planner.generate_briefs(state)
         gear_brief = briefs[3]
         self.assertIn("DESIGN_FRONT", gear_brief.reference_roles_required)
+        self.assertIn("color must match the reference", gear_brief.positive_prompt.lower())
 
     def test_composition_guidance_has_no_text_mentions(self):
         planner = TemplatePlanner()

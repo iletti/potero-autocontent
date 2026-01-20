@@ -20,3 +20,19 @@ class TestCriticGrading(unittest.TestCase):
         updated = critic._apply_fail_fast(result)
         self.assertFalse(updated["pass"])
         self.assertLessEqual(updated["qa_score"], 10)
+
+    def test_fail_fast_on_embroidery_color_mismatch(self):
+        critic = Critic()
+        result = {
+            "pass": True,
+            "qa_score": 90,
+            "feedback": "Embroidery color mismatch on the left chest.",
+            "violations": [],
+            "repair_mode": "none",
+            "repair_targets": [],
+            "repair_instructions": "",
+        }
+        updated = critic._apply_fail_fast(result)
+        self.assertFalse(updated["pass"])
+        self.assertEqual(updated["repair_mode"], "edit")
+        self.assertIn("embroidery color", updated["repair_targets"])

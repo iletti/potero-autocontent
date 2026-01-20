@@ -656,6 +656,14 @@ class Planner:
                 prompt,
                 "Show the 'POTERO STANDARD' embroidery on the left chest, matching the reference."
             )
+            prompt = _append_if_missing(
+                prompt,
+                "Embroidery thread color must match the reference exactly; preserve hue, saturation, and value with no color shift or fade.",
+            )
+            negative = _append_if_missing(
+                negative,
+                "color shifted embroidery, desaturated embroidery, faded embroidery, washed-out text",
+            )
         else:
             if is_back:
                 prompt = _append_if_missing(

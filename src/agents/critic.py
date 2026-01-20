@@ -242,6 +242,20 @@ Return strict JSON only in this format:
             if not result.get("feedback"):
                 result["feedback"] = "Hard fail: OPSEC or Brand violation."
 
+        if _embroidery_color_mismatch(result):
+            result["pass"] = False
+            if result.get("qa_score") is not None:
+                result["qa_score"] = min(result.get("qa_score", 100), 74)
+            if not result.get("repair_mode") or result.get("repair_mode") == "none":
+                result["repair_mode"] = "edit"
+            if not result.get("repair_targets"):
+                result["repair_targets"] = ["embroidery color"]
+            if not result.get("repair_instructions"):
+                result["repair_instructions"] = (
+                    "Match the left-chest embroidery color to the reference exactly; "
+                    "if the reference is black, keep it pure black."
+                )
+
         # Sharp check for ANY text hallucination if repair targets point to text
         repair_targets = result.get("repair_targets") or []
         if any("text" in str(t).lower() or "logo" in str(t).lower() for t in repair_targets):
@@ -371,4 +385,30 @@ def _contains_marker(values: List[str], markers: set[str]) -> bool:
         for marker in markers:
             if marker in lowered:
                 return True
+    return False
+
+
+def _embroidery_color_mismatch(result: Dict[str, Any]) -> bool:
+    feedback = str(result.get("feedback", "")).lower()
+    violations = [str(v).lower() for v in (result.get("violations") or [])]
+    fail_reasons = [str(v).lower() for v in (result.get("potero_fail_reasons") or [])]
+    repair_targets = [str(v).lower() for v in (result.get("repair_targets") or [])]
+    markers = [
+        "embroidery color",
+        "logo color",
+        "color mismatch",
+        "wrong color",
+        "gray embroidery",
+        "grey embroidery",
+        "faded embroidery",
+        "washed out",
+    ]
+    if any(marker in feedback for marker in markers):
+        return True
+    if any(any(marker in value for marker in markers) for value in violations):
+        return True
+    if any(any(marker in value for marker in markers) for value in fail_reasons):
+        return True
+    if any("embroidery" in value and "color" in value for value in repair_targets):
+        return True
     return False

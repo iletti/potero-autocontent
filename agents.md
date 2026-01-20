@@ -208,8 +208,11 @@ graph TD
 * **Role-Based Selection:** The Planner infers required roles (e.g., `DESIGN_FRONT`, `GEAR_BATTLE_BELT_BACK`, `ENV_TAIGA_WINTER_KAAMOS`).
 * **Quality Scoring:** Assets are ranked by file size and sharpness (future: watermark detection).
 * **Golden Packs:** Environment-specific role bundles can augment the base role list.
+* **Design-Specific Filtering:** Role selection is filtered to the active `design_id` plus global references to prevent cross-design color bleed.
 * **Hard Cap:** Maximum 14 references per call; per-call soft cap of 10.
-* **Upload Caching:** File hash-based deduplication prevents re-uploading assets.
+* **Critic Inputs:** Critic now uses design-only references (DESIGN roles) to focus on branding accuracy.
+* **Upload Caching:** File hash-based deduplication prevents re-uploading assets; persisted per run in `upload_cache.json`.
+* **Selected Role Tracking:** `briefs.json` includes `reference_roles_selected` for transparency about injected roles.
 
 ### Interaction Logging
 
@@ -221,6 +224,7 @@ graph TD
 * Run state (`state.json`) and briefs (`briefs.json`) are saved after each step.
 * On restart, the system validates budget/theme/design consistency.
 * Resumes from the first incomplete slide.
+* Re-runs avoid file overwrites by suffixing outputs with `_rN` when needed.
 
 ## 6. Resilience & Fallback Hierarchy
 
@@ -254,7 +258,7 @@ If retries are exhausted (after `max_retries_per_slide`):
 **Negative v1.2** (negative):
 > "bad anatomy, extra fingers, watermark, signature, username, unapproved text, typography, slogans, numbers, unapproved logos, patches on gear, chest rig logos, flag, name tape, face, eyes, skin, bright colors, sunny, studio lighting, softbox, rim light, HDR, glossy commercial look, cinematic teal-orange grading, bokeh, 3d render, cgi, decorative snowfall overlay, bokeh snow particles, glitter, sparkles, floating dust particles, fake film overlay snow, US special forces vibe, multicam, Crye logos, American flag patches."
 
-**Config Default:** `POTERO_SHADER_VERSION=v1_1` (env var), but the planner ignores this and uses the v1.2 constants directly.
+**Config Default:** `POTERO_SHADER_VERSION=v1_2` (env var). Shader v1.2 constants are injected into all prompts.
 
 ---
 
@@ -262,15 +266,18 @@ If retries are exhausted (after `max_retries_per_slide`):
 
 **Fully Implemented:**
 1. Multi-agent cyclic graph with LangGraph.
-2. Shader v1.2 hardcoded in Planner.
-3. Role-based reference selection with quality scoring and golden packs.
+2. Shader v1.2 enforced in Planner with v1.2 default config.
+3. Role-based reference selection with quality scoring, golden packs, and design-scoped filtering.
 4. Kit consistency compiler and brand drift preflight checks.
 5. Critic repair mode routing (edit vs regen).
 6. ArtistEdit node for localized image fixes.
-7. Slide 1 candidate pool with budget-aware scoring.
+7. Slide 1 candidate pool with budget-aware scoring (configurable via `POTERO_ANCHOR_CANDIDATES`).
 8. Model fallback chain for Artist.
-9. Run state persistence and resume logic.
+9. Run state persistence, resume logic, and non-overwrite output naming.
 10. Interaction logging to markdown.
+11. Critic design-only reference inputs.
+12. Embroidery color lock tied to reference hue/saturation/value for front shots.
+13. Output metadata includes image dimensions in `state.json`.
 
 **Partial/Future:**
 - Watermark detection in reference quality scoring.
@@ -290,7 +297,7 @@ Outputs are written to `output/<run_id>/`:
 - `state.json` - Carousel state
 - `briefs.json` - Slide briefs
 - `interaction_log.md` - Agent interaction log
-- `slide_1.png`, `slide_2.png`, etc. - Generated images
+- `slide_1.jpg|png|webp`, `slide_2.*`, etc. - Generated images (extension matches actual bytes; re-runs use `_rN` suffix)
 
 ---
 
